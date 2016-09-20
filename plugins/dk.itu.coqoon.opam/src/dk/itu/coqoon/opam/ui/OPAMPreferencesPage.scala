@@ -1,7 +1,7 @@
 package dk.itu.coqoon.opam.ui
 
 import dk.itu.coqoon.ui.utilities.{UIXML, Event, Listener}
-import dk.itu.coqoon.opam.OPAM
+import dk.itu.coqoon.opam.{OPAM, Activator}
 import org.eclipse.ui.IWorkbench
 import org.eclipse.ui.IWorkbenchPreferencePage
 import org.eclipse.swt.{events, widgets}
@@ -89,5 +89,30 @@ class OPAMPreferencesPage
         }
     })
     names.get[widgets.Composite]("root").get
+  }
+}
+
+object OPAMPreferences {
+  object Roots {
+    final val ID = "roots"
+    def get() =
+      Activator.getDefault.getPreferenceStore.getString(ID).split(";")
+    def set(roots : Seq[String]) =
+      if (roots.forall(!_.contains(";"))) {
+        Activator.getDefault.getPreferenceStore().setValue(
+            ID, roots.mkString(";"))
+      }
+  }
+  object ActiveRoot {
+    final val ID = "activeRoot"
+    def get() = {
+      val raw = Activator.getDefault.getPreferenceStore.getString(ID)
+      if (raw.length > 0 && Roots.get.contains(raw)) {
+        Some(raw)
+      } else None
+    }
+    def set(root : String) =
+      if (Roots.get.contains(root))
+        Activator.getDefault.getPreferenceStore.setValue(ID, root)
   }
 }
