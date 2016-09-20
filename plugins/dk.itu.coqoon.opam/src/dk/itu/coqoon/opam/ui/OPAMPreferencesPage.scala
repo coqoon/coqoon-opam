@@ -10,8 +10,22 @@ import org.eclipse.jface.operation.IRunnableWithProgress
 
 class InitJob(val path : Path) extends IRunnableWithProgress {
   override def run(monitor : IProgressMonitor) = {
-    monitor.beginTask("Initialise OPAM root", IProgressMonitor.UNKNOWN)
-    dk.itu.coqoon.opam.OPAM.initRoot(path)
+    monitor.beginTask("Initialise OPAM root", 3)
+
+    monitor.subTask("Initialising")
+    val r = OPAM.initRoot(path)
+    monitor.worked(1)
+
+    monitor.subTask("Adding Coq repository")
+    r.addRepositories(
+        new r.Repository("coq","http://coq.inria.fr/opam/released"))
+    monitor.worked(1)
+
+    monitor.subTask("Building Coq")
+    r.getPackage("coq").getLatestVersion.foreach(_.install)
+    monitor.worked(1)
+
+    monitor.done()
   }
 }
 
