@@ -1,6 +1,7 @@
 package dk.itu.coqoon.opam.ui
 
 import dk.itu.coqoon.ui.utilities.{UIXML, Event, Listener}
+import dk.itu.coqoon.opam.OPAM
 import org.eclipse.ui.IWorkbench
 import org.eclipse.ui.IWorkbenchPreferencePage
 import org.eclipse.swt.{events, widgets}
