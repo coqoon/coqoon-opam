@@ -8,7 +8,7 @@ class OPAMRoot(val path : IPath) {
 
   case class Package(val name : String) {
     
-    val order_chars = """^[><=]""".r
+    private val order_chars = """^[><=]""".r
     
     case class Version(val version : String) {
       def install() : Boolean = {
@@ -25,7 +25,7 @@ class OPAMRoot(val path : IPath) {
       read("show","-f","description",name).mkString("\n")
     }
 
-    val version = """([^, ]++)""".r
+    private val version = """([^, ]++)""".r
     
     def getAvailableVersions() : Seq[Version] = {
       val versions_str = read("show","-f","available-versions",name).head
@@ -43,7 +43,7 @@ class OPAMRoot(val path : IPath) {
     def getVersion(version : String) : Version = new Version(version)
   }
 
-  val repo = """.*(\S++)\s++(\S++)$""".r
+  private val repo = """.*(\S++)\s++(\S++)$""".r
   
   def getRepositories() : Seq[Repository] = {
     read("repo","list").map(_ match {
@@ -53,9 +53,7 @@ class OPAMRoot(val path : IPath) {
   }
   
   def addRepositories(repos : Repository*) = {
-    repos.foreach((r) =>
-      assert(this("repo","add",r.name,r.uri),
-           (()=> "repo add " + r.name + " fails")))
+    repos.foreach((r) => this("repo","add",r.name,r.uri))
   }
 
   def getPackages() : Seq[Package] = {
@@ -85,7 +83,7 @@ object OPAM {
     val is_root = path.addTrailingSeparator.append("config").toFile.exists()
     val is_empty_dir = path.toFile.isDirectory() && path.toFile.list().isEmpty
     if (!is_root)
-      if (is_empty_dir) assert(root("init","-j","2","-n"), "opam init fails")
+      if (is_empty_dir) root("init","-j","2","-n")
       else throw new Exception("path " + path + " is a non empty directory")
     roots :+= root
     root
