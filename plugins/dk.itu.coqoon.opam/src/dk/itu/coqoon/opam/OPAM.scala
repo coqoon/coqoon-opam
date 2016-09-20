@@ -53,8 +53,7 @@ class OPAMRoot(val path : IPath) {
   }
   
   def addRepositories(repos : Repository*) = {
-    repos.foreach((r) =>
-      assert(this("repo","add",r.name,r.uri), "repo add " + r.name + " fails"))
+    repos.foreach((r) => this("repo","add",r.name,r.uri))
   }
 
   def getPackages() : Seq[Package] = {
@@ -84,7 +83,7 @@ object OPAM {
     val is_root = path.addTrailingSeparator.append("config").toFile.exists()
     val is_empty_dir = path.toFile.isDirectory() && path.toFile.list().isEmpty
     if (!is_root)
-      if (is_empty_dir) assert(root("init","-j","2","-n"), "opam init fails")
+      if (is_empty_dir) root("init","-j","2","-n")
       else throw new Exception("path " + path + " is a non empty directory")
     roots :+= root
     root
