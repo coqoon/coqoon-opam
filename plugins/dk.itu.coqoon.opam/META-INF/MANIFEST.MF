@@ -1,0 +1,10 @@
+Manifest-Version: 1.0
+Bundle-ManifestVersion: 2
+Bundle-Name: OPAM integration for Coqoon
+Bundle-SymbolicName: dk.itu.coqoon.opam
+Bundle-Version: 1.0.0.0
+Bundle-Activator: dk.itu.coqoon.opam.Activator
+Require-Bundle: org.eclipse.ui,
+ org.eclipse.core.runtime,
+ org.scala-lang.scala-library
+Bundle-ActivationPolicy: lazy
