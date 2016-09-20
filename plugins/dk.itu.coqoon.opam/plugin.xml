@@ -9,5 +9,11 @@
             name="OPAM">
       </page>
    </extension>
+   <extension
+         point="dk.itu.coqoon.core.loadpath">
+      <provider
+            provider="dk.itu.coqoon.opam.OPAMProvider">
+      </provider>
+   </extension>
 
 </plugin>
