@@ -31,12 +31,15 @@ class OPAMRoot(val path : IPath) {
       val versions_str = read("show","-f","available-versions",name).head
       (version findAllIn versions_str).map(new Version(_)).toList
     }
+
     def getInstalledVersion() : Option[Version] = {
       val v = read("config","var",name + ":version").head 
       if (v == "#undefined") None else Some(new Version(v))
     }
+
     def getLatestVersion() : Option[Version] =
       getAvailableVersions().lastOption
+
     def getVersion(version : String) : Version = new Version(version)
   }
 
@@ -79,16 +82,20 @@ object OPAM {
   def getRoots() : Seq[OPAMRoot] = roots
   def initRoot(path : IPath) = {
     val root = new OPAMRoot(path)
-    assert(root("init","-j","2","-n"), "opam init fails")
+    val is_root = path.addTrailingSeparator.append("config").toFile.exists()
+    val is_empty_dir = path.toFile.isDirectory() && path.toFile.list().isEmpty
+    if (!is_root)
+      if (is_empty_dir) assert(root("init","-j","2","-n"), "opam init fails")
+      else throw new Exception("path " + path + " is a non empty directory")
     roots :+= root
     root
   }
-  /* 
+  /*
   def main(args : Array[String]) = {
     val tmp = "/tmp/test"
-    assert(Process("rm",Seq("-rf",tmp)).run().exitValue() == 0)
+    //assert(Process("rm",Seq("-rf",tmp)).run().exitValue() == 0)
     val r = initRoot(new Path(tmp))
-    r.addRepositories(new r.Repository("coq","http://coq.inria.fr/opam/released"))
+    //r.addRepositories(new r.Repository("coq","http://coq.inria.fr/opam/released"))
     assert(r.getRepositories().length == 2, "#repos")
     println(r.getPackages())
     println(r.getPackage("camlp5").getAvailableVersions())
