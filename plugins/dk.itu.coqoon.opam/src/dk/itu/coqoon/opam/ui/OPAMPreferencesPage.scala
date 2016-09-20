@@ -1,6 +1,7 @@
 package dk.itu.coqoon.opam.ui
 
 import dk.itu.coqoon.ui.utilities.{UIXML, Event, Listener}
+import dk.itu.coqoon.core.utilities.CacheSlot
 import dk.itu.coqoon.opam.{OPAM, Activator}
 import org.eclipse.ui.IWorkbench
 import org.eclipse.ui.IWorkbenchPreferencePage
@@ -32,6 +33,16 @@ class InitJob(val path : Path) extends IRunnableWithProgress {
 
 class OPAMPreferencesPage
     extends PreferencePage with IWorkbenchPreferencePage {
+  private var roots = CacheSlot(OPAMPreferences.Roots.get.toBuffer)
+  private var activeRoot = CacheSlot(OPAMPreferences.ActiveRoot.get)
+  override def performOk() = {
+    if (roots.get != OPAMPreferences.Roots.get.toBuffer)
+      OPAMPreferences.Roots.set(roots.get)
+    if (activeRoot.get != OPAMPreferences.ActiveRoot.get)
+      activeRoot.get.foreach(OPAMPreferences.ActiveRoot.set)
+    true
+  }
+
   override def init(w : IWorkbench) = ()
   override def createContents(c : widgets.Composite) = {
     val names = UIXML(
@@ -40,7 +51,7 @@ class OPAMPreferencesPage
           <label>
             Root:
           </label>
-          <combo>
+          <combo name="roots">
             <grid-data h-grab="true" />
           </combo>
           <button name="add">
@@ -69,6 +80,22 @@ class OPAMPreferencesPage
             </tab>
           </tab-folder>
         </composite>, c)
+    names.get[widgets.Combo]("combo").foreach(combo => {
+      val roots = OPAMPreferences.Roots.get
+      if (roots.length == 0) {
+        combo.setEnabled(false)
+        combo.setText("(none)")
+      } else {
+        combo.setEnabled(true)
+        roots.foreach(combo.add)
+      }
+      Listener.Selection(combo, Listener {
+        case Event.Selection(ev) =>
+          activeRoot.set(Some(Some(
+              combo.getItem(combo.getSelectionIndex()))))
+          /* XXX: also update the viewers */
+      })
+    })
     val button = names.get[widgets.Button]("add").get
     Listener.Selection(button, Listener {
       case Event.Selection(ev) =>
@@ -81,6 +108,7 @@ class OPAMPreferencesPage
                  new org.eclipse.jface.dialogs.ProgressMonitorDialog(
                      button.getShell)
                dialog.run(true, true, op)
+               /* XXX: also update the combo */
              } catch {
                case e : java.lang.reflect.InvocationTargetException =>
                case e : InterruptedException =>
