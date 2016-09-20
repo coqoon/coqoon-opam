@@ -1,7 +1,7 @@
 package dk.itu.coqoon.opam
 
 import org.eclipse.core.runtime.{Path, IPath}
-import scala.sys.process.{Process,ProcessBuilder}
+import scala.sys.process.{Process,ProcessBuilder,ProcessLogger}
 
 class OPAMRoot(val path : IPath) {
   class Repository(val name : String, val uri : String)
@@ -72,18 +72,22 @@ class OPAMRoot(val path : IPath) {
   private[opam] def apply(cmd : String*) : Boolean = {
     opam(cmd:_*).run.exitValue() == 0
   }
+  private[opam] def apply(logger : ProcessLogger, cmd : String*) : Boolean = {
+    opam(cmd :+ "-v" :_*).run(logger).exitValue() == 0
+  }
 }
 
 object OPAM {
 
   var roots : Seq[OPAMRoot] = Seq()
   def getRoots() : Seq[OPAMRoot] = roots
-  def initRoot(path : IPath) = {
+  def drop = ProcessLogger((s) => ())
+  def initRoot(path : IPath, logger : ProcessLogger = drop) = {
     val root = new OPAMRoot(path)
     val is_root = path.addTrailingSeparator.append("config").toFile.exists()
     val is_empty_dir = path.toFile.isDirectory() && path.toFile.list().isEmpty
     if (!is_root)
-      if (is_empty_dir) root("init","-j","2","-n")
+      if (is_empty_dir) root(logger, "init","-j","2","-n")
       else throw new Exception("path " + path + " is a non empty directory")
     roots :+= root
     root
