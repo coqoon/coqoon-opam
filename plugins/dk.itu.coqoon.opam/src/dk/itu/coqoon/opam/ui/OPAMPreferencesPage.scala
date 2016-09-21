@@ -19,7 +19,7 @@ class InitJob(val path : Path, val ocaml : String, val coq : String) extends IRu
   def log(m : IProgressMonitor, prefix : String) : scala.sys.process.ProcessLogger =
     scala.sys.process.ProcessLogger((s) => { f.write(s); f.write("\n"); f.flush(); m.subTask(prefix + ":\n " + s) })
   
-  var error : Option[OPAMException] = None  
+  var error : Option[String] = None  
     
   override def run(monitor : IProgressMonitor) = try {
     monitor.beginTask("Initialise OPAM root", 6)
@@ -57,7 +57,7 @@ class InitJob(val path : Path, val ocaml : String, val coq : String) extends IRu
     monitor.worked(1)
 
   } catch {
-    case e : OPAMException => error = Some(e)
+    case e : OPAMException => error = Some(e.getMessage)
   } finally {
     monitor.done()
   }
@@ -225,7 +225,7 @@ class OPAMPreferencesPage
                val dialog = new org.eclipse.jface.dialogs.ProgressMonitorDialog(this.getShell)
                dialog.run(true, true, op)
                op.error match {
-                 case Some(OPAMException(s)) => this.setErrorMessage(s)
+                 case Some(s) => this.setErrorMessage(s)
                  case None =>
                    cv0.refresh(OPAM)
                    /* XXX: update the ComboViewer and select the new root */
