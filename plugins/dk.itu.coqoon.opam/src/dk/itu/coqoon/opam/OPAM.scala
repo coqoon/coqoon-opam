@@ -41,6 +41,13 @@ class OPAMRoot(val path : IPath) {
       
     } /* Version */
     
+    def installAnyVersion(logger : ProcessLogger = OPAM.drop) : Boolean = {
+      val ok = OPAMRoot.this(logger, "install","-y",this.name)
+      fillCache
+      ok
+    }
+      
+    
     def getDescription() : String =
       read("show","-f","description",name).mkString("\n")
 
@@ -85,7 +92,7 @@ class OPAMRoot(val path : IPath) {
     addRepositories(OPAM.drop, repos:_*)
 
   def getPackages(filter : Package => Boolean = _ => true) : Seq[Package] =
-    cache.keys.toList.filter(filter)
+    cache.keys.toList.filter(filter).sortWith((p1, p2) => p1.name < p2.name)
   /*{
     read("list","-a","-s",filter).map(s => new Package(s))
   }*/

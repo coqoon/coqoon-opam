@@ -49,11 +49,8 @@ class InitJob(val path : Path, val ocaml : String, val coq : String) extends IRu
         new r.Repository("coqoon","http://bitbucket.org/coqpide/opam.git"))
     monitor.worked(1)
 
-    val pidetop = r.getPackage("pidetop").getLatestVersion()
-    pidetop match {
-      case None => throw new OPAMException("Coqoon needs pidetop")
-      case Some(v) => v.install(false,logger("Building pidetop"))
-    }
+    if (!r.getPackage("pidetop").installAnyVersion(logger("Installing pidetop")))
+      throw new OPAMException("Coqoon needs pidetop")
     monitor.worked(1)
 
   } catch {
@@ -61,6 +58,26 @@ class InitJob(val path : Path, val ocaml : String, val coq : String) extends IRu
   } finally {
     monitor.done()
   }
+}
+
+class OPAMRootDelete(path : String, s : org.eclipse.swt.widgets.Shell) extends Dialog(s) {
+      var delete = false
+  
+      override def createDialogArea(c : widgets.Composite) = {
+        val names = UIXML(
+          <composite name="root">
+           <grid-layout columns="1" />
+           <label>Removing OPAM root {path}</label>
+           <button name="check" style="check">Also remove files</button>
+          </composite>,c)
+          
+         val check = names.get[widgets.Button]("check").get
+         Listener.Selection(check, Listener {
+          case Event.Selection(_) => delete = check.getSelection
+         })
+          
+         names.get[widgets.Composite]("root").get
+      }
 }
 
 class OPAMRootCreation(s : org.eclipse.swt.widgets.Shell)
@@ -130,8 +147,7 @@ class OPAMRootCreation(s : org.eclipse.swt.widgets.Shell)
       })
       
       names.get[widgets.Composite]("root").get
-   }
-    
+    }
 }
 
 class OPAMPreferencesPage
@@ -160,7 +176,7 @@ class OPAMPreferencesPage
           <button name="add">
             Add...
           </button>
-          <button enabled="false">
+          <button name="remove">
             Remove...
           </button>
           <label separator="horizontal">
@@ -267,6 +283,16 @@ class OPAMPreferencesPage
           case _ =>
         }
     })
+    val remove = names.get[widgets.Button]("remove").get
+    Listener.Selection(remove, Listener {
+      case Event.Selection(ev) => {
+        val selected = cv0.getStructuredSelection.getFirstElement.asInstanceOf[OPAMRoot].path.toString
+        val d = new OPAMRootDelete(selected, this.getShell)
+        if (d.open() == org.eclipse.jface.window.Window.OK) {
+          // if (d.delete) FIXME
+          OPAMPreferences.Roots.set(OPAMPreferences.Roots.get().filter(x => x != selected))
+        }
+    }})
     val button = names.get[widgets.Button]("add").get
     val shell = button.getShell
     Listener.Selection(button, Listener {
@@ -321,7 +347,9 @@ class OPAMPackageContentProvider extends FuturisticContentProvider {
     i match {
       case r : OPAMRoot =>
         val s : String = ""
-        r.getPackages(_.name.startsWith("coq"))
+        r.getPackages(p =>
+          p.name.startsWith("coq-") ||
+          p.name == "coq" || p.name == "pidetop")
       case p : OPAMRoot#Package =>
         p.getAvailableVersions
       case _ => Seq()
