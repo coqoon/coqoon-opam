@@ -169,8 +169,7 @@ class OPAMPreferencesPage
           <label>
             Location:
           </label>
-          <label>
-            /home/user/dummy/label/what
+          <label name="path">
             <grid-data h-span="3" />
           </label>
           <tab-folder>
@@ -209,8 +208,14 @@ class OPAMPreferencesPage
       case Event.Selection(ev) =>
         cv0.getSelection match {
           case i : viewers.IStructuredSelection =>
-            tv0.setInput(i.getFirstElement)
-            tv1.setInput(i.getFirstElement)
+            val root = i.getFirstElement.asInstanceOf[OPAMRoot]
+            names.get[widgets.Label]("path").foreach(
+                _.setText(root.path.toString))
+            Seq(tv0, tv1).foreach(tv => {
+              tv.setInput(root)
+              for (i <- tv.getTree.getColumns)
+                i.pack
+            })
         }
     })
     val button = names.get[widgets.Button]("add").get
