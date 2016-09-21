@@ -6,11 +6,16 @@ import scala.sys.process.{Process,ProcessBuilder,ProcessLogger}
 case class OPAMException(s : String) extends Exception(s)
 
 class OPAMRoot(val path : IPath) {
-  case class Repository(val name : String, val uri : String)
+  case class Repository(val name : String, val uri : String) {
+    def getRoot() = OPAMRoot.this
+  }
 
   case class Package(val name : String) {
-    
+    def getRoot() = OPAMRoot.this
+
     case class Version(val version : String) {
+      def getPackage() = Package.this
+
       def install(pin : Boolean = false,
                   logger : ProcessLogger = OPAM.drop) : Boolean = {
         val order_chars = """^[><=]""".r
