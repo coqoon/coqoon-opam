@@ -6,7 +6,7 @@ import scala.sys.process.{Process,ProcessBuilder,ProcessLogger}
 case class OPAMException(s : String) extends Exception(s)
 
 class OPAMRoot(val path : IPath) {
-  class Repository(val name : String, val uri : String)
+  case class Repository(val name : String, val uri : String)
 
   case class Package(val name : String) {
     
@@ -35,7 +35,8 @@ class OPAMRoot(val path : IPath) {
 
     def getAvailableVersions() : Seq[Version] = {
       val version = """([^, ]++)""".r
-      val versions_str = read("show","-f","available-versions",name).head
+      val versions_str =
+        read("show","-f","available-version,available-versions",name).head.split(':')(1)
       (version findAllIn versions_str).map(new Version(_)).toList
     }
 
@@ -53,7 +54,7 @@ class OPAMRoot(val path : IPath) {
 
   
   def getRepositories() : Seq[Repository] = {
-    val repo = """.*(\S++)\s++(\S++)$""".r
+    val repo = """.*?(\S++)\s++(\S++)$""".r
     read("repo","list").map(_ match {
         case repo(name,uri) => new Repository(name,uri)
         case s => throw new OPAMException("error parsing " + s)
