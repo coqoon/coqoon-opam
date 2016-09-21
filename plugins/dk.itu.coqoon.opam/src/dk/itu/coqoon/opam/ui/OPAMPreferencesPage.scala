@@ -12,12 +12,20 @@ import org.eclipse.jface.preference.PreferencePage
 import org.eclipse.jface.operation.IRunnableWithProgress
 import org.eclipse.jface.dialogs.{ProgressMonitorDialog, Dialog}
 
+class ReplaceWithJob(val pkg : OPAMRoot#Package#Version) extends IRunnableWithProgress {
+  override def run(monitor : IProgressMonitor) = monitor.done()
+}
+class InstallAnyJob(val pkg : OPAMRoot#Package) extends IRunnableWithProgress {
+  override def run(monitor : IProgressMonitor) = monitor.done()
+}
+class RemoveJob(val pkg : OPAMRoot#Package) extends IRunnableWithProgress {
+  override def run(monitor : IProgressMonitor) = monitor.done()
+}
+
 class InitJob(val path : Path, val ocaml : String, val coq : String) extends IRunnableWithProgress {
   
-  val f = new java.io.FileWriter(new java.io.File("/tmp/log.txt"))
-    
   def log(m : IProgressMonitor, prefix : String) : scala.sys.process.ProcessLogger =
-    scala.sys.process.ProcessLogger((s) => { f.write(s); f.write("\n"); f.flush(); m.subTask(prefix + ":\n " + s) })
+    scala.sys.process.ProcessLogger((s) => { m.subTask(prefix + ":\n " + s) })
   
   var error : Option[String] = None  
     
