@@ -90,7 +90,7 @@ class OPAMRoot(val path : IPath) {
     addRepositories(OPAM.drop, repos:_*)
 
   def getPackages(filter : Package => Boolean = _ => true) : Seq[Package] =
-    cache.keys.toList.filter(filter)
+    cache.keys.toList.filter(filter).sortWith((p1, p2) => p1.name < p2.name)
   /*{
     read("list","-a","-s",filter).map(s => new Package(s))
   }*/
