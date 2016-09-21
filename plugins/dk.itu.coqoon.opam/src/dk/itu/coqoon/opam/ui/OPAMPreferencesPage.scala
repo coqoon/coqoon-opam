@@ -254,6 +254,8 @@ class OPAMPreferencesPage
       for (i <- tv.getTree.getColumns)
         i.pack
     })
+
+    var job : Option[IRunnableWithProgressAndError] = None
     val toggle = names.get[widgets.Button]("toggle").get
     Listener.Selection(tv1.getControl, Listener {
       case Event.Selection(ev) =>
@@ -263,36 +265,56 @@ class OPAMPreferencesPage
               case p : OPAMRoot#Package if p.isPinned() =>
                 toggle.setText("Package is pinned")
                 toggle.setEnabled(false)
+                job = None
               case v : OPAMRoot#Package#Version
                   if v.getPackage.isPinned() =>
                 toggle.setText("Package is pinned")
                 toggle.setEnabled(false)
+                job = None
               case p : OPAMRoot#Package =>
                 p.getInstalledVersion match {
                   case Some(v) =>
                     toggle.setText("Uninstall...")
                     toggle.setEnabled(true)
+                    job = Some(new RemoveJob(p))
                   case None =>
                     toggle.setText("Install new package...")
                     toggle.setEnabled(true)
+                    job = Some(new InstallAnyJob(p))
                 }
               case v : OPAMRoot#Package#Version
                   if v.getPackage.getInstalledVersion.contains(v) =>
                 toggle.setText("Uninstall...")
                 toggle.setEnabled(true)
+                job = Some(new RemoveJob(v.getPackage))
               case v : OPAMRoot#Package#Version
                   if v.getPackage.getInstalledVersion != None =>
                 toggle.setText("Replace installed version...")
                 toggle.setEnabled(true)
+                job = Some(new InstallVersionJob(v))
               case v : OPAMRoot#Package#Version =>
                 toggle.setText("Install new package...")
                 toggle.setEnabled(true)
+                job = Some(new InstallVersionJob(v))
             }
             import org.eclipse.swt.SWT
             toggle.pack
             toggle.getParent.layout()
           case _ =>
         }
+    })
+    Listener.Selection(toggle, Listener {
+      case Event.Selection(ev) =>
+        job.foreach(job => {
+          val dialog =
+            new org.eclipse.jface.dialogs.ProgressMonitorDialog(this.getShell)
+          dialog.run(true, true, job)
+          job.error match {
+            case Some(s) => this.setErrorMessage(s)
+            case None =>
+              tv1.refresh()
+          }
+        })
     })
     cv0.setContentProvider(new OPAMContentProvider)
     cv0.setLabelProvider(new OPAMLabelProvider)
