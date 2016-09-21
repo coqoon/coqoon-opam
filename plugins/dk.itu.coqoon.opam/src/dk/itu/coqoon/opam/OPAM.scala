@@ -113,7 +113,11 @@ class OPAMRoot(val path : IPath) {
   }
   
   private [opam] def opam(args : String*) : ProcessBuilder = {
-    Process(command="opam" +: args, cwd=None, "OPAMROOT" -> path.toString)
+    Process(command="opam" +: args, cwd=None,
+        "OPAMROOT" -> path.toString,
+        "COQLIB" -> "",
+        "COQBIN" -> ""
+    )
   }
   
   private[opam] def read(cmd : String*) : Seq[String] = {
