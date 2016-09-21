@@ -125,7 +125,7 @@ class OPAMRoot(val path : IPath) {
     opam(cmd:_*).run.exitValue() == 0
   }
   private[opam] def apply(logger : ProcessLogger, cmd : String*) : Boolean = {
-    logger.out(cmd.toString())
+    logger.out("opam " + cmd.mkString(" "))
     opam(cmd :+ "-v" :_*).run(logger).exitValue() == 0
   }
   
