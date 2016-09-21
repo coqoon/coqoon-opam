@@ -90,9 +90,9 @@ class OPAMRoot(val path : IPath) {
 } /* OPAMRoot */
 
 object OPAM {
-
-  var roots : Seq[OPAMRoot] = Seq()
-  def getRoots() : Seq[OPAMRoot] = roots
+  import dk.itu.coqoon.opam.ui.OPAMPreferences
+  def getRoots() : Seq[OPAMRoot] =
+    OPAMPreferences.Roots.get.map(p => new OPAMRoot(new Path(p)))
   def drop = ProcessLogger(s => ())
   def initRoot(path : IPath,
                ocaml : String = "system",
@@ -103,7 +103,7 @@ object OPAM {
     if (!is_root)
       if (is_empty_dir || !path.toFile.exists()) root(logger,"init","--comp="+ocaml,"-j","2","-n")
       else throw new OPAMException("path " + path + " is a non empty directory")
-    roots :+= root
+    OPAMPreferences.Roots.set(OPAMPreferences.Roots.get() :+ path.toString)
     root
   }
   
