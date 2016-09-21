@@ -49,11 +49,8 @@ class InitJob(val path : Path, val ocaml : String, val coq : String) extends IRu
         new r.Repository("coqoon","http://bitbucket.org/coqpide/opam.git"))
     monitor.worked(1)
 
-    val pidetop = r.getPackage("pidetop").getLatestVersion()
-    pidetop match {
-      case None => throw new OPAMException("Coqoon needs pidetop")
-      case Some(v) => v.install(false,logger("Building pidetop"))
-    }
+    if (!r.getPackage("pidetop").installAnyVersion(logger("Installing pidetop")))
+      throw new OPAMException("Coqoon needs pidetop")
     monitor.worked(1)
 
   } catch {
