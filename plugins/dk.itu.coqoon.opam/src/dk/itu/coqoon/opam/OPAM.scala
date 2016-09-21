@@ -82,8 +82,8 @@ class OPAMRoot(val path : IPath) {
   def addRepositories(repos : Repository*) : Unit =
     addRepositories(OPAM.drop, repos:_*)
 
-  def getPackages(filter : String = "*") : Seq[Package] =
-    cache.keys.toList
+  def getPackages(filter : Package => Boolean = _ => true) : Seq[Package] =
+    cache.keys.toList.filter(filter)
   /*{
     read("list","-a","-s",filter).map(s => new Package(s))
   }*/
@@ -96,7 +96,8 @@ class OPAMRoot(val path : IPath) {
       line match {
         case name_ver(name,version) => {
           val p = new Package(name)
-          val v = if (version == "--") None else Some(new p.Version(version))
+          val v = if (version == "--" || name(0) == '#') None
+                  else Some(new p.Version(version))
           cache += (p -> v) }
         case _ =>
       })

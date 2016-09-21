@@ -271,7 +271,8 @@ class OPAMPackageContentProvider extends FuturisticContentProvider {
   override def actuallyGetChildren(i : AnyRef) =
     i match {
       case r : OPAMRoot =>
-        r.getPackages("coq*")
+        val s : String = ""
+        r.getPackages(_.name.startsWith("coq"))
       case p : OPAMRoot#Package =>
         p.getAvailableVersions
       case _ => Seq()
