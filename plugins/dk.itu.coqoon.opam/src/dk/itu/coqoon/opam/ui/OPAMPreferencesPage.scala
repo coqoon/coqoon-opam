@@ -2,33 +2,153 @@ package dk.itu.coqoon.opam.ui
 
 import dk.itu.coqoon.ui.utilities.{UIXML, Event, Listener}
 import dk.itu.coqoon.core.utilities.CacheSlot
-import dk.itu.coqoon.opam.{OPAM, Activator}
+import dk.itu.coqoon.opam.{OPAM, OPAMException, Activator}
 import org.eclipse.ui.IWorkbench
 import org.eclipse.ui.IWorkbenchPreferencePage
 import org.eclipse.swt.{events, widgets}
 import org.eclipse.core.runtime.{Path, IPath, Status, IStatus, IProgressMonitor}
 import org.eclipse.jface.preference.PreferencePage
 import org.eclipse.jface.operation.IRunnableWithProgress
+import org.eclipse.jface.dialogs.ProgressMonitorDialog
 
-class InitJob(val path : Path) extends IRunnableWithProgress {
-  override def run(monitor : IProgressMonitor) = {
-    monitor.beginTask("Initialise OPAM root", 3)
+class InitJob(val path : Path, val ocaml : String, val coq : String) extends IRunnableWithProgress {
+  
+  val f = new java.io.FileWriter(new java.io.File("/tmp/log.txt"))
+    
+  def log(m : IProgressMonitor, prefix : String) : scala.sys.process.ProcessLogger =
+    scala.sys.process.ProcessLogger((s) => { f.write(s); f.write("\n"); f.flush(); m.subTask(prefix + ":\n " + s) })
+  
+  var error : Option[OPAMException] = None  
+    
+  override def run(monitor : IProgressMonitor) = try {
+    monitor.beginTask("Initialise OPAM root", 6)
+    
+    val logger = log(monitor, _ : String)
 
-    monitor.subTask("Initialising")
-    val r = OPAM.initRoot(path)
+    val r = OPAM.initRoot(path, ocaml, logger = logger("Initializing"))
     monitor.worked(1)
 
-    monitor.subTask("Adding Coq repository")
-    r.addRepositories(
+    r.addRepositories(logger("Adding repository: Coq released"),
         new r.Repository("coq","http://coq.inria.fr/opam/released"))
     monitor.worked(1)
 
-    monitor.subTask("Building Coq")
-    r.getPackage("coq").getLatestVersion.foreach(_.install)
+    val dev_version = """dev$""".r  
+    coq match {
+      case dev_version() => 
+        r.addRepositories(logger("Adding repository: Coq core-dev"),
+          new r.Repository("core-dev","http://coq.inria.fr/opam/core-dev"))
+      case _ => // no need for extra repos
+    }
+    monitor.worked(1)
+        
+    r.getPackage("coq").getVersion(coq).install(true, logger("Building Coq"))
+    monitor.worked(1)
+    
+    r.addRepositories(logger("Adding repository: Coqoon"),
+        new r.Repository("coqoon","http://bitbucket.org/coqpide/opam.git"))
     monitor.worked(1)
 
+    val pidetop = r.getPackage("pidetop").getLatestVersion()
+    pidetop match {
+      case None => throw new OPAMException("Coqoon needs pidetop")
+      case Some(v) => v.install(false,logger("Building pidetop"))
+    }
+    monitor.worked(1)
+
+  } catch {
+    case e : OPAMException => error = Some(e)
+  } finally {
     monitor.done()
   }
+}
+
+class OPAMRootCreation(s : org.eclipse.swt.widgets.Shell)
+  extends org.eclipse.jface.dialogs.Dialog(s) { //(s,org.eclipse.jface.dialogs.PopupDialog.INFOPOPUP_SHELLSTYLE,true,false,false,false,false,"title","wwww") {
+  
+    var names : UIXML.NameMap = new UIXML.NameMap
+    var path = ""
+    var coq = ""
+    var ocaml = ""
+    var create_root = false
+    
+    var succeeded = false
+    var errormsg = ""
+    
+    this.getShell.setText("OPAM root parameters")
+    
+    override def createDialogArea(c : widgets.Composite) = {
+      names = UIXML(
+        <composite name="root">
+          <grid-layout columns="3" />
+
+				  <label>Path:<tool-tip>Select a directory</tool-tip></label>
+				  <text name="path"/>
+				  <button name="sel-path">Select...</button>
+
+          <label>Coq:<tool-tip>Coq version to install</tool-tip></label>
+          <combo name="coq">
+            <grid-data h-grab="true" h-span="2" />
+          </combo>
+          <label>OCaml:<tool-tip>OCaml version to install</tool-tip></label>
+          <combo name="ocaml">
+            <grid-data h-grab="true" h-span="2" />
+          </combo>
+
+				  <label></label>
+				  <label></label>
+				   <button name="create">Create</button>
+        </composite>,c)
+
+      val wcoq = names.get[widgets.Combo]("coq").get
+      wcoq.add("8.5.2")
+      wcoq.add("8.6.dev")
+      wcoq.select(0)
+      
+      val wocaml = names.get[widgets.Combo]("ocaml").get
+      wocaml.add("4.01.0")
+      wocaml.add("4.02.3")
+      wocaml.add("system")
+      wocaml.select(0)
+      
+      val wpath = names.get[widgets.Text]("path").get
+      wpath.setText(System.getenv("HOME") + "/opam-roots/coq-" + wocaml.getText + "-" + wcoq.getText)
+     
+      val wcreate = names.get[widgets.Button]("create").get
+      
+      Listener.Selection(wcreate, Listener {
+        case Event.Selection(ev) =>
+          path = wpath.getText.trim
+          coq = wcoq.getText.trim
+          ocaml = wocaml.getText.trim
+          create_root = coq != "" && ocaml != "" && path != ""
+          if (create_root) {
+             try {
+               val op = new InitJob(new Path(path),ocaml,coq)
+               val dialog = new org.eclipse.jface.dialogs.ProgressMonitorDialog(this.getShell)
+               dialog.run(true, true, op)
+               op.error match {
+                 case Some(OPAMException(s)) => succeeded = false; errormsg = s
+                 case None => succeeded = true }
+             } catch {
+               case e : java.lang.reflect.InvocationTargetException =>
+                 errormsg = e.getMessage
+               case e : InterruptedException =>
+                 errormsg = e.getMessage
+             } finally {
+               this.close()
+             }
+          }
+      })
+      Listener.Selection(names.get[widgets.Button]("sel-path").get, Listener {
+        case Event.Selection(ev) =>
+          val d = new widgets.DirectoryDialog(s)
+          Option(d.open()).map(_.trim).filter(_.length > 0) match {
+            case Some(p) => wpath.setText(p)
+            case _ => }
+      })
+      
+      names.get[widgets.Composite]("root").get
+   }
 }
 
 class OPAMPreferencesPage
@@ -97,6 +217,7 @@ class OPAMPreferencesPage
       })
     })
     val button = names.get[widgets.Button]("add").get
+    val shell = button.getShell
     Listener.Selection(button, Listener {
       case Event.Selection(ev) =>
         val d = new widgets.DirectoryDialog(button.getShell)
