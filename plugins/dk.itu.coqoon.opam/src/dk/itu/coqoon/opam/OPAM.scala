@@ -6,6 +6,8 @@ import scala.sys.process.{Process,ProcessBuilder,ProcessLogger}
 case class OPAMException(s : String) extends Exception(s)
 
 class OPAMRoot(val path : IPath) {
+  private var cache : Map[Package,Option[Package#Version]] = Map()
+  
   case class Repository(val name : String, val uri : String) {
     def getRoot() = OPAMRoot.this
   }
@@ -27,10 +29,15 @@ class OPAMRoot(val path : IPath) {
         if (ok && pin) 
             OPAMRoot.this.getPackage(name).getInstalledVersion.foreach(v =>
               pin_ok = OPAMRoot.this(logger, "pin","add",name,v.version))
+        fillCache
         ok && pin_ok
       }
       
-      def uninstall() : Boolean = OPAMRoot.this("remove","-y",name) 
+      def uninstall() : Boolean = { 
+        val ok = OPAMRoot.this("remove","-y",name)
+        fillCache
+        ok
+      }
       
     } /* Version */
     
@@ -45,10 +52,14 @@ class OPAMRoot(val path : IPath) {
       (version findAllIn versions_str).map(new Version(_)).toList
     }
 
-    def getInstalledVersion() : Option[Version] = {
+    def getInstalledVersion() : Option[Package#Version] =
+      try cache(this)
+      catch { case e : NoSuchElementException => None }
+
+    /*{
       val v = read("config","var",name + ":version").head 
       if (v == "#undefined") None else Some(new Version(v))
-    }
+    }*/
 
     def getLatestVersion() : Option[Version] =
       getAvailableVersions().lastOption
@@ -71,11 +82,25 @@ class OPAMRoot(val path : IPath) {
   def addRepositories(repos : Repository*) : Unit =
     addRepositories(OPAM.drop, repos:_*)
 
-  def getPackages(filter : String = "*") : Seq[Package] = {
+  def getPackages(filter : String = "*") : Seq[Package] =
+    cache.keys.toList
+  /*{
     read("list","-a","-s",filter).map(s => new Package(s))
-  }
+  }*/
   
   def getPackage(name : String) : Package = new Package(name)
+  
+  def fillCache() : Unit = {   
+    val name_ver = """^(\S++)\s++(\S++).*""".r
+    read("list","-a").foreach(line =>
+      line match {
+        case name_ver(name,version) => {
+          val p = new Package(name)
+          val v = if (version == "--") None else Some(new p.Version(version))
+          cache += (p -> v) }
+        case _ =>
+      })
+  }
   
   private [opam] def opam(args : String*) : ProcessBuilder = {
     Process(command="opam" +: args, cwd=None, "OPAMROOT" -> path.toString)
@@ -99,7 +124,10 @@ class OPAMRoot(val path : IPath) {
 object OPAM {
   import dk.itu.coqoon.opam.ui.OPAMPreferences
   def getRoots() : Seq[OPAMRoot] =
-    OPAMPreferences.Roots.get.map(p => new OPAMRoot(new Path(p)))
+    OPAMPreferences.Roots.get.map(p => {
+      val root = new OPAMRoot(new Path(p))
+      root.fillCache
+      root })
   def drop = ProcessLogger(s => ())
   def initRoot(path : IPath,
                ocaml : String = "system",
