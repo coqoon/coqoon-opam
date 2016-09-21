@@ -2,7 +2,7 @@ package dk.itu.coqoon.opam.ui
 
 import dk.itu.coqoon.ui.utilities.{UIXML, Event, Listener}
 import dk.itu.coqoon.core.utilities.CacheSlot
-import dk.itu.coqoon.opam.{OPAM, OPAMException, Activator}
+import dk.itu.coqoon.opam.{OPAM, OPAMRoot, OPAMException, Activator}
 import org.eclipse.ui.IWorkbench
 import org.eclipse.ui.IWorkbenchPreferencePage
 import org.eclipse.swt.{events, widgets}
@@ -192,21 +192,26 @@ class OPAMPreferencesPage
     val Some(cv0) = names.get[viewers.ComboViewer]("cv0")
     val Seq(Some(tv0), Some(tv1)) =
       names.getMany[viewers.TreeViewer]("tv0", "tv1")
+    tv0.setContentProvider(new OPAMRepositoryContentProvider)
+    tv0.setLabelProvider(new OPAMRepositoryLabelProvider)
+    tv1.setContentProvider(new OPAMPackageContentProvider)
+    tv1.setLabelProvider(new OPAMPackageLabelProvider)
     Seq(tv0, tv1).foreach(tv => {
       tv.getTree.setLinesVisible(true)
       tv.getTree.setHeaderVisible(true)
       for (i <- tv.getTree.getColumns)
         i.pack
     })
-    names.get[viewers.ComboViewer]("combo").foreach(combo => {
-      Listener.Selection(combo.getControl, Listener {
-        case Event.Selection(ev) =>
-          cv0.getSelection match {
-            case i : viewers.IStructuredSelection =>
-              tv0.setInput(i.getFirstElement)
-              tv1.setInput(i.getFirstElement)
-          }
-      })
+    cv0.setContentProvider(new OPAMContentProvider)
+    cv0.setLabelProvider(new OPAMLabelProvider)
+    cv0.setInput(OPAM)
+    Listener.Selection(cv0.getControl, Listener {
+      case Event.Selection(ev) =>
+        cv0.getSelection match {
+          case i : viewers.IStructuredSelection =>
+            tv0.setInput(i.getFirstElement)
+            tv1.setInput(i.getFirstElement)
+        }
     })
     val button = names.get[widgets.Button]("add").get
     val shell = button.getShell
@@ -222,6 +227,7 @@ class OPAMPreferencesPage
                op.error match {
                  case Some(OPAMException(s)) => this.setErrorMessage(s)
                  case None =>
+                   cv0.refresh(OPAM)
                    /* XXX: update the ComboViewer and select the new root */
                }
            } catch {
@@ -234,6 +240,79 @@ class OPAMPreferencesPage
     })
     names.get[widgets.Composite]("root").get
   }
+}
+
+import dk.itu.coqoon.ui.loadpath.FuturisticContentProvider
+
+class OPAMContentProvider extends FuturisticContentProvider {
+  override def actuallyGetChildren(i : AnyRef) =
+    i match {
+      case i @ dk.itu.coqoon.opam.OPAM =>
+        i.getRoots()
+      case _ => Seq()
+    }
+}
+
+class OPAMRepositoryContentProvider extends FuturisticContentProvider {
+  override def actuallyGetChildren(i : AnyRef) =
+    i match {
+      case r : OPAMRoot =>
+        r.getRepositories
+      case _ => Seq()
+    }
+}
+
+class OPAMPackageContentProvider extends FuturisticContentProvider {
+  override def actuallyGetChildren(i : AnyRef) =
+    i match {
+      case r : OPAMRoot =>
+        r.getPackages
+      case p : OPAMRoot#Package =>
+        p.getAvailableVersions
+      case _ => Seq()
+    }
+}
+
+class OPAMLabelProvider
+    extends viewers.BaseLabelProvider with viewers.ILabelProvider {
+  override def getImage(i : AnyRef) = null
+  override def getText(i : AnyRef) =
+    i match {
+      case i @ dk.itu.coqoon.opam.OPAM =>
+        "OPAM"
+      case r : dk.itu.coqoon.opam.OPAMRoot =>
+        r.path.lastSegment()
+      case _ => null
+    }
+}
+
+class OPAMRepositoryLabelProvider
+    extends viewers.BaseLabelProvider with viewers.ITableLabelProvider {
+  override def getColumnImage(i : AnyRef, column : Int) = null
+  override def getColumnText(i : AnyRef, column : Int) =
+    (i, column) match {
+      case (i : OPAMRoot#Repository, 0) =>
+        i.name
+      case (i : OPAMRoot#Repository, 1) =>
+        i.uri
+      case _ => null
+    }
+}
+
+class OPAMPackageLabelProvider
+    extends viewers.BaseLabelProvider with viewers.ITableLabelProvider {
+  override def getColumnImage(i : AnyRef, column : Int) = null
+  override def getColumnText(i : AnyRef, column : Int) =
+    (i, column) match {
+      case (i : OPAMRoot#Package, 0) =>
+        i.name
+      case (i : OPAMRoot#Package#Version, 0) =>
+        i.version
+      case (i : OPAMRoot#Package#Version, 1)
+          if i.getPackage.getInstalledVersion.contains(i) =>
+        "installed"
+      case _ => null
+    }
 }
 
 object OPAMPreferences {
