@@ -66,6 +66,8 @@ class OPAMRoot(val path : IPath) {
 
     def getVersion(version : String) : Version = new Version(version)
 
+    def isPinned() =
+      read("config", "var", name + ":pinned").head.trim == "true"
   } /* Package */
 
   
