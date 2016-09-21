@@ -9,7 +9,7 @@ import org.eclipse.swt.{events, widgets}
 import org.eclipse.core.runtime.{Path, IPath, Status, IStatus, IProgressMonitor}
 import org.eclipse.jface.preference.PreferencePage
 import org.eclipse.jface.operation.IRunnableWithProgress
-import org.eclipse.jface.dialogs.ProgressMonitorDialog
+import org.eclipse.jface.dialogs.{ProgressMonitorDialog, Dialog}
 
 class InitJob(val path : Path, val ocaml : String, val coq : String) extends IRunnableWithProgress {
   
@@ -63,21 +63,16 @@ class InitJob(val path : Path, val ocaml : String, val coq : String) extends IRu
 }
 
 class OPAMRootCreation(s : org.eclipse.swt.widgets.Shell)
-  extends org.eclipse.jface.dialogs.Dialog(s) { //(s,org.eclipse.jface.dialogs.PopupDialog.INFOPOPUP_SHELLSTYLE,true,false,false,false,false,"title","wwww") {
+  extends Dialog(s) {
   
-    var names : UIXML.NameMap = new UIXML.NameMap
     var path = ""
     var coq = ""
     var ocaml = ""
-    var create_root = false
     
-    var succeeded = false
-    var errormsg = ""
-    
-    this.getShell.setText("OPAM root parameters")
+    //this.getShell.setText("OPAM root parameters")
     
     override def createDialogArea(c : widgets.Composite) = {
-      names = UIXML(
+      val names = UIXML(
         <composite name="root">
           <grid-layout columns="3" />
 
@@ -93,62 +88,49 @@ class OPAMRootCreation(s : org.eclipse.swt.widgets.Shell)
           <combo name="ocaml">
             <grid-data h-grab="true" h-span="2" />
           </combo>
-
-				  <label></label>
-				  <label></label>
-				   <button name="create">Create</button>
         </composite>,c)
 
-      val wcoq = names.get[widgets.Combo]("coq").get
-      wcoq.add("8.5.2")
-      wcoq.add("8.6.dev")
-      wcoq.select(0)
-      
-      val wocaml = names.get[widgets.Combo]("ocaml").get
-      wocaml.add("4.01.0")
-      wocaml.add("4.02.3")
-      wocaml.add("system")
-      wocaml.select(0)
-      
-      val wpath = names.get[widgets.Text]("path").get
-      wpath.setText(System.getenv("HOME") + "/opam-roots/coq-" + wocaml.getText + "-" + wcoq.getText)
-     
-      val wcreate = names.get[widgets.Button]("create").get
-      
-      Listener.Selection(wcreate, Listener {
-        case Event.Selection(ev) =>
-          path = wpath.getText.trim
-          coq = wcoq.getText.trim
-          ocaml = wocaml.getText.trim
-          create_root = coq != "" && ocaml != "" && path != ""
-          if (create_root) {
-             try {
-               val op = new InitJob(new Path(path),ocaml,coq)
-               val dialog = new org.eclipse.jface.dialogs.ProgressMonitorDialog(this.getShell)
-               dialog.run(true, true, op)
-               op.error match {
-                 case Some(OPAMException(s)) => succeeded = false; errormsg = s
-                 case None => succeeded = true }
-             } catch {
-               case e : java.lang.reflect.InvocationTargetException =>
-                 errormsg = e.getMessage
-               case e : InterruptedException =>
-                 errormsg = e.getMessage
-             } finally {
-               this.close()
-             }
-          }
+      val wcoq = names.get[widgets.Combo]("coq")
+      wcoq.foreach(wcoq => {
+        Listener.Modify(wcoq, Listener {
+          case Event.Modify(_) => coq = wcoq.getText.trim
+        })
+        wcoq.add("8.5.2")
+        wcoq.add("8.6.dev")
+        wcoq.select(0)
       })
+      
+      val wocaml = names.get[widgets.Combo]("ocaml")
+      wocaml.foreach(wocaml => {
+        Listener.Modify(wocaml, Listener {
+          case Event.Modify(_) => ocaml = wocaml.getText.trim
+        })
+        wocaml.add("4.01.0")
+        wocaml.add("4.02.3")
+        wocaml.add("system")
+        wocaml.select(0)
+      })
+      
+      val wpath = names.get[widgets.Text]("path")
+      wpath.foreach(wpath => { 
+        Listener.Modify(wpath, Listener {
+          case Event.Modify(_) => path = wpath.getText.trim
+        })
+        wpath.setText(System.getenv("HOME") + "/opam-roots/coq-" + 
+            wocaml.get.getText + "-" + wcoq.get.getText)
+      })
+     
       Listener.Selection(names.get[widgets.Button]("sel-path").get, Listener {
         case Event.Selection(ev) =>
           val d = new widgets.DirectoryDialog(s)
           Option(d.open()).map(_.trim).filter(_.length > 0) match {
-            case Some(p) => wpath.setText(p)
+            case Some(p) => wpath.get.setText(p)
             case _ => }
       })
       
       names.get[widgets.Composite]("root").get
    }
+    
 }
 
 class OPAMPreferencesPage
@@ -220,21 +202,22 @@ class OPAMPreferencesPage
     val shell = button.getShell
     Listener.Selection(button, Listener {
       case Event.Selection(ev) =>
-        val d = new widgets.DirectoryDialog(button.getShell)
-        Option(d.open()).map(_.trim).filter(_.length > 0) match {
-          case Some(path) =>
-             try {
-               val op = new InitJob(new Path(path))
-               val dialog =
-                 new org.eclipse.jface.dialogs.ProgressMonitorDialog(
-                     button.getShell)
+        val d = new OPAMRootCreation(button.getShell)
+        if (d.open() == org.eclipse.jface.window.Window.OK) {
+           val create_root = d.coq != "" && d.ocaml != "" && d.path != ""
+           if (create_root) try {
+               val op = new InitJob(new Path(d.path),d.ocaml,d.coq)
+               val dialog = new org.eclipse.jface.dialogs.ProgressMonitorDialog(this.getShell)
                dialog.run(true, true, op)
-               /* XXX: also update the combo */
-             } catch {
+               op.error match {
+                 case Some(OPAMException(s)) => this.setErrorMessage(s)
+                 case None => /* XXX */}
+           } catch {
                case e : java.lang.reflect.InvocationTargetException =>
+                 this.setErrorMessage(e.getMessage)
                case e : InterruptedException =>
-             }
-          case _ =>
+                 this.setErrorMessage(e.getMessage)
+           }
         }
     })
     names.get[widgets.Composite]("root").get
