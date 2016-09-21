@@ -12,27 +12,52 @@ import org.eclipse.jface.preference.PreferencePage
 import org.eclipse.jface.operation.IRunnableWithProgress
 import org.eclipse.jface.dialogs.{ProgressMonitorDialog, Dialog}
 
-class ReplaceWithJob(val pkg : OPAMRoot#Package#Version) extends IRunnableWithProgress {
-  override def run(monitor : IProgressMonitor) = monitor.done()
-}
-class InstallAnyJob(val pkg : OPAMRoot#Package) extends IRunnableWithProgress {
-  override def run(monitor : IProgressMonitor) = monitor.done()
-}
-class RemoveJob(val pkg : OPAMRoot#Package) extends IRunnableWithProgress {
-  override def run(monitor : IProgressMonitor) = monitor.done()
-}
-
-class InitJob(val path : Path, val ocaml : String, val coq : String) extends IRunnableWithProgress {
+object LOG {
   
   def log(m : IProgressMonitor, prefix : String) : scala.sys.process.ProcessLogger =
     scala.sys.process.ProcessLogger((s) => { m.subTask(prefix + ":\n " + s) })
   
-  var error : Option[String] = None  
-    
-  override def run(monitor : IProgressMonitor) = try {
+}
+abstract class IRunnableWithProgressAndError extends IRunnableWithProgress {
+  var error : Option[String] = None 
+  def run_or_fail(monitor : IProgressMonitor) : Boolean
+  final def run(monitor : IProgressMonitor) = {
+    try if(!run_or_fail(monitor)) error = Some("Error")
+    catch { case e : Throwable => error = Some(e.getMessage) }
+    finally { monitor.done() }
+  }
+}
+class InstallVersionJob(val ver : OPAMRoot#Package#Version) extends IRunnableWithProgressAndError {
+  override def run_or_fail(monitor : IProgressMonitor) = {
+    monitor.beginTask("Installing " + ver.getPackage.name + " " + ver.version, 1)
+    val ok = ver.install(pin = false, LOG.log(monitor,"Installing"))
+    monitor.worked(1)
+    ok
+  }
+}
+class InstallAnyJob(val pkg : OPAMRoot#Package) extends IRunnableWithProgressAndError  {
+  override def run_or_fail(monitor : IProgressMonitor) = {
+    monitor.beginTask("Installing " + pkg.name, 1)
+    val ok = pkg.installAnyVersion(LOG.log(monitor,"Installing"))
+    monitor.worked(1)
+    ok
+  }
+}
+class RemoveJob(val pkg : OPAMRoot#Package) extends IRunnableWithProgressAndError  {
+  override def run_or_fail(monitor : IProgressMonitor) = {
+    monitor.beginTask("Removing " + pkg.name, 1)
+    pkg.getInstalledVersion.foreach(_.uninstall())
+    monitor.worked(1)
+    true
+  }
+}
+
+class InitJob(val path : Path, val ocaml : String, val coq : String) extends IRunnableWithProgressAndError {
+  
+  override def run_or_fail(monitor : IProgressMonitor) = {
     monitor.beginTask("Initialise OPAM root", 6)
     
-    val logger = log(monitor, _ : String)
+    val logger = LOG.log(monitor, _ : String)
 
     val r = OPAM.initRoot(path, ocaml, logger = logger("Initializing"))
     monitor.worked(1)
@@ -60,11 +85,7 @@ class InitJob(val path : Path, val ocaml : String, val coq : String) extends IRu
     if (!r.getPackage("pidetop").installAnyVersion(logger("Installing pidetop")))
       throw new OPAMException("Coqoon needs pidetop")
     monitor.worked(1)
-
-  } catch {
-    case e : OPAMException => error = Some(e.getMessage)
-  } finally {
-    monitor.done()
+    true
   }
 }
 
