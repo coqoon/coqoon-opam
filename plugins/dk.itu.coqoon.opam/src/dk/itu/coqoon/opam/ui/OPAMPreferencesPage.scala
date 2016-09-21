@@ -181,10 +181,18 @@ class OPAMPreferencesPage
               </tree-viewer>
             </tab>
             <tab label="Packages">
-              <tree-viewer name="tv1">
-                <column style="left" label="Name" />
-                <column style="left" label="Status" />
-              </tree-viewer>
+              <composite>
+                <grid-layout columns="1" />
+                <tree-viewer name="tv1">
+                  <grid-data align="fill" grab="true" />
+                  <column style="left" label="Name" />
+                  <column style="left" label="Status" />
+                </tree-viewer>
+                <button name="toggle" enabled="false">
+                  <grid-data h-align="end" h-grab="true" />
+                  Install..
+                </button>
+              </composite>
             </tab>
           </tab-folder>
         </composite>, c)
@@ -201,6 +209,46 @@ class OPAMPreferencesPage
       for (i <- tv.getTree.getColumns)
         i.pack
     })
+    val toggle = names.get[widgets.Button]("toggle").get
+    Listener.Selection(tv1.getControl, Listener {
+      case Event.Selection(ev) =>
+        tv1.getSelection match {
+          case i : viewers.IStructuredSelection =>
+            i.getFirstElement match {
+              case p : OPAMRoot#Package if p.isPinned() =>
+                toggle.setText("Package is pinned")
+                toggle.setEnabled(false)
+              case v : OPAMRoot#Package#Version
+                  if v.getPackage.isPinned() =>
+                toggle.setText("Package is pinned")
+                toggle.setEnabled(false)
+              case p : OPAMRoot#Package =>
+                p.getInstalledVersion match {
+                  case Some(v) =>
+                    toggle.setText("Uninstall...")
+                    toggle.setEnabled(true)
+                  case None =>
+                    toggle.setText("Install new package...")
+                    toggle.setEnabled(true)
+                }
+              case v : OPAMRoot#Package#Version
+                  if v.getPackage.getInstalledVersion.contains(v) =>
+                toggle.setText("Uninstall...")
+                toggle.setEnabled(true)
+              case v : OPAMRoot#Package#Version
+                  if v.getPackage.getInstalledVersion != None =>
+                toggle.setText("Replace installed version...")
+                toggle.setEnabled(true)
+              case v : OPAMRoot#Package#Version =>
+                toggle.setText("Install new package...")
+                toggle.setEnabled(true)
+            }
+            import org.eclipse.swt.SWT
+            toggle.pack
+            toggle.getParent.layout()
+          case _ =>
+        }
+    })
     cv0.setContentProvider(new OPAMContentProvider)
     cv0.setLabelProvider(new OPAMLabelProvider)
     cv0.setInput(OPAM)
@@ -216,6 +264,7 @@ class OPAMPreferencesPage
               for (i <- tv.getTree.getColumns)
                 i.pack
             })
+          case _ =>
         }
     })
     val button = names.get[widgets.Button]("add").get
