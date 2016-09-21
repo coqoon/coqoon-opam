@@ -276,6 +276,13 @@ class OPAMPackageContentProvider extends FuturisticContentProvider {
         p.getAvailableVersions
       case _ => Seq()
     }
+  override def hasChildren(i : AnyRef) =
+    i match {
+      case p : OPAMRoot#Package =>
+        true
+      case _ =>
+        super.hasChildren(i)
+    }
 }
 
 class OPAMLabelProvider
