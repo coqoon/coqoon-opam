@@ -13,11 +13,10 @@ import org.eclipse.jface.operation.IRunnableWithProgress
 import org.eclipse.jface.dialogs.{ProgressMonitorDialog, Dialog}
 
 object LOG {
-  
   def log(m : IProgressMonitor, prefix : String) : scala.sys.process.ProcessLogger =
     scala.sys.process.ProcessLogger((s) => { m.subTask(prefix + ":\n " + s) })
-  
 }
+
 abstract class IRunnableWithProgressAndError extends IRunnableWithProgress {
   var error : Option[String] = None 
   def run_or_fail(monitor : IProgressMonitor) : Boolean
@@ -27,8 +26,9 @@ abstract class IRunnableWithProgressAndError extends IRunnableWithProgress {
     finally { monitor.done() }
   }
 }
+
 class InstallVersionJob(val ver : OPAMRoot#Package#Version) extends IRunnableWithProgressAndError {
-  override def run_or_fail(monitor : IProgressMonitor) = {
+  def run_or_fail(monitor : IProgressMonitor) = {
     monitor.beginTask("Installing " + ver.getPackage.name + " " + ver.version, 1)
     val ok = ver.install(pin = false, LOG.log(monitor,"Installing"))
     monitor.worked(1)
@@ -36,7 +36,7 @@ class InstallVersionJob(val ver : OPAMRoot#Package#Version) extends IRunnableWit
   }
 }
 class InstallAnyJob(val pkg : OPAMRoot#Package) extends IRunnableWithProgressAndError  {
-  override def run_or_fail(monitor : IProgressMonitor) = {
+  def run_or_fail(monitor : IProgressMonitor) = {
     monitor.beginTask("Installing " + pkg.name, 1)
     val ok = pkg.installAnyVersion(LOG.log(monitor,"Installing"))
     monitor.worked(1)
@@ -44,17 +44,15 @@ class InstallAnyJob(val pkg : OPAMRoot#Package) extends IRunnableWithProgressAnd
   }
 }
 class RemoveJob(val pkg : OPAMRoot#Package) extends IRunnableWithProgressAndError  {
-  override def run_or_fail(monitor : IProgressMonitor) = {
+  def run_or_fail(monitor : IProgressMonitor) = {
     monitor.beginTask("Removing " + pkg.name, 1)
     pkg.getInstalledVersion.foreach(_.uninstall())
     monitor.worked(1)
     true
   }
 }
-
 class InitJob(val path : Path, val ocaml : String, val coq : String) extends IRunnableWithProgressAndError {
-  
-  override def run_or_fail(monitor : IProgressMonitor) = {
+  def run_or_fail(monitor : IProgressMonitor) = {
     monitor.beginTask("Initialise OPAM root", 6)
     
     val logger = LOG.log(monitor, _ : String)
