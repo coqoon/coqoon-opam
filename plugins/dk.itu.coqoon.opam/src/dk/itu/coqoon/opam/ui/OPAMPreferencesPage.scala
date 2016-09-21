@@ -272,7 +272,9 @@ class OPAMPackageContentProvider extends FuturisticContentProvider {
     i match {
       case r : OPAMRoot =>
         val s : String = ""
-        r.getPackages(_.name.startsWith("coq"))
+        r.getPackages(p =>
+          p.name.startsWith("coq-") ||
+          p.name == "coq" || p.name == "pidetop")
       case p : OPAMRoot#Package =>
         p.getAvailableVersions
       case _ => Seq()
