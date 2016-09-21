@@ -286,7 +286,7 @@ class OPAMPreferencesPage
     val remove = names.get[widgets.Button]("remove").get
     Listener.Selection(remove, Listener {
       case Event.Selection(ev) => {
-        val selected = cv0.getStructuredSelection.getFirstElement.asInstanceOf[OPAMRoot].path.toString
+        val selected = cv0.getSelection.asInstanceOf[viewers.IStructuredSelection].getFirstElement.asInstanceOf[OPAMRoot].path.toString
         val d = new OPAMRootDelete(selected, this.getShell)
         if (d.open() == org.eclipse.jface.window.Window.OK) {
           // if (d.delete) FIXME
