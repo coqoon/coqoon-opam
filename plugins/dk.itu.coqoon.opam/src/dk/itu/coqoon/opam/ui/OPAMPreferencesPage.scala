@@ -176,16 +176,28 @@ class OPAMPreferencesPage
           <tab-folder>
             <grid-data h-span="4" grab="true" />
             <tab label="Repositories">
-              <table-viewer name="tf0" />
+              <tree-viewer name="tv0">
+                <column style="left" label="Name" />
+                <column style="left" label="URI" />
+              </tree-viewer>
             </tab>
             <tab label="Packages">
-              <table-viewer name="tf1" />
+              <tree-viewer name="tv1">
+                <column style="left" label="Name" />
+                <column style="left" label="Status" />
+              </tree-viewer>
             </tab>
           </tab-folder>
         </composite>, c)
     val Some(cv0) = names.get[viewers.ComboViewer]("cv0")
     val Seq(Some(tv0), Some(tv1)) =
-      names.getMany[viewers.TableViewer]("tv0", "tv1")
+      names.getMany[viewers.TreeViewer]("tv0", "tv1")
+    Seq(tv0, tv1).foreach(tv => {
+      tv.getTree.setLinesVisible(true)
+      tv.getTree.setHeaderVisible(true)
+      for (i <- tv.getTree.getColumns)
+        i.pack
+    })
     names.get[viewers.ComboViewer]("combo").foreach(combo => {
       Listener.Selection(combo.getControl, Listener {
         case Event.Selection(ev) =>
