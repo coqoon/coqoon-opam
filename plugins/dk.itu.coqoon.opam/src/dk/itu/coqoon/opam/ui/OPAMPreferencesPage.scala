@@ -60,6 +60,26 @@ class InitJob(val path : Path, val ocaml : String, val coq : String) extends IRu
   }
 }
 
+class OPAMRootDelete(path : String, s : org.eclipse.swt.widgets.Shell) extends Dialog(s) {
+      var delete = false
+  
+      override def createDialogArea(c : widgets.Composite) = {
+        val names = UIXML(
+          <composite name="root">
+           <grid-layout columns="1" />
+           <label>Removing OPAM root {path}</label>
+           <button name="check" style="check">Also remove files</button>
+          </composite>,c)
+          
+         val check = names.get[widgets.Button]("check").get
+         Listener.Selection(check, Listener {
+          case Event.Selection(_) => delete = check.getSelection
+         })
+          
+         names.get[widgets.Composite]("root").get
+      }
+}
+
 class OPAMRootCreation(s : org.eclipse.swt.widgets.Shell)
   extends Dialog(s) {
   
@@ -127,8 +147,7 @@ class OPAMRootCreation(s : org.eclipse.swt.widgets.Shell)
       })
       
       names.get[widgets.Composite]("root").get
-   }
-    
+    }
 }
 
 class OPAMPreferencesPage
@@ -157,7 +176,7 @@ class OPAMPreferencesPage
           <button name="add">
             Add...
           </button>
-          <button enabled="false">
+          <button name="remove">
             Remove...
           </button>
           <label separator="horizontal">
@@ -215,6 +234,16 @@ class OPAMPreferencesPage
             })
         }
     })
+    val remove = names.get[widgets.Button]("remove").get
+    Listener.Selection(remove, Listener {
+      case Event.Selection(ev) => {
+        val selected = cv0.getStructuredSelection.getFirstElement.asInstanceOf[OPAMRoot].path.toString
+        val d = new OPAMRootDelete(selected, this.getShell)
+        if (d.open() == org.eclipse.jface.window.Window.OK) {
+          // if (d.delete) FIXME
+          OPAMPreferences.Roots.set(OPAMPreferences.Roots.get().filter(x => x != selected))
+        }
+    }})
     val button = names.get[widgets.Button]("add").get
     val shell = button.getShell
     Listener.Selection(button, Listener {
