@@ -41,6 +41,13 @@ class OPAMRoot(val path : IPath) {
       
     } /* Version */
     
+    def installAnyVersion(logger : ProcessLogger = OPAM.drop) : Boolean = {
+      val ok = OPAMRoot.this(logger, "install","-y",this.name)
+      fillCache
+      ok
+    }
+      
+    
     def getDescription() : String =
       read("show","-f","description",name).mkString("\n")
 
