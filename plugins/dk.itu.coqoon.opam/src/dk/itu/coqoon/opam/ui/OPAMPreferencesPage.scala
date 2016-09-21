@@ -338,11 +338,12 @@ object OPAMPreferences {
   object Roots {
     final val ID = "roots"
     def get() =
-      Activator.getDefault.getPreferenceStore.getString(ID).split(";")
+      Activator.getDefault.getPreferenceStore.getString(ID).split(";").filter(
+          !_.isEmpty)
     def set(roots : Seq[String]) =
       if (roots.forall(!_.contains(";"))) {
         Activator.getDefault.getPreferenceStore().setValue(
-            ID, roots.mkString(";"))
+            ID, roots.filter(!_.isEmpty).mkString(";"))
       }
   }
   object ActiveRoot {
