@@ -7,6 +7,7 @@ import org.eclipse.ui.IWorkbench
 import org.eclipse.ui.IWorkbenchPreferencePage
 import org.eclipse.swt.{events, widgets}
 import org.eclipse.core.runtime.{Path, IPath, Status, IStatus, IProgressMonitor}
+import org.eclipse.jface.viewers
 import org.eclipse.jface.preference.PreferencePage
 import org.eclipse.jface.operation.IRunnableWithProgress
 import org.eclipse.jface.dialogs.{ProgressMonitorDialog, Dialog}
@@ -153,9 +154,9 @@ class OPAMPreferencesPage
           <label>
             Root:
           </label>
-          <combo name="roots">
+          <combo-viewer name="cv0">
             <grid-data h-grab="true" />
-          </combo>
+          </combo-viewer>
           <button name="add">
             Add...
           </button>
@@ -175,27 +176,24 @@ class OPAMPreferencesPage
           <tab-folder>
             <grid-data h-span="4" grab="true" />
             <tab label="Repositories">
-              <tree-viewer name="tf0" />
+              <table-viewer name="tf0" />
             </tab>
             <tab label="Packages">
-              <tree-viewer name="tf1" />
+              <table-viewer name="tf1" />
             </tab>
           </tab-folder>
         </composite>, c)
-    names.get[widgets.Combo]("combo").foreach(combo => {
-      val roots = OPAMPreferences.Roots.get
-      if (roots.length == 0) {
-        combo.setEnabled(false)
-        combo.setText("(none)")
-      } else {
-        combo.setEnabled(true)
-        roots.foreach(combo.add)
-      }
-      Listener.Selection(combo, Listener {
+    val Some(cv0) = names.get[viewers.ComboViewer]("cv0")
+    val Seq(Some(tv0), Some(tv1)) =
+      names.getMany[viewers.TableViewer]("tv0", "tv1")
+    names.get[viewers.ComboViewer]("combo").foreach(combo => {
+      Listener.Selection(combo.getControl, Listener {
         case Event.Selection(ev) =>
-          activeRoot.set(Some(Some(
-              combo.getItem(combo.getSelectionIndex()))))
-          /* XXX: also update the viewers */
+          cv0.getSelection match {
+            case i : viewers.IStructuredSelection =>
+              tv0.setInput(i.getFirstElement)
+              tv1.setInput(i.getFirstElement)
+          }
       })
     })
     val button = names.get[widgets.Button]("add").get
@@ -211,7 +209,9 @@ class OPAMPreferencesPage
                dialog.run(true, true, op)
                op.error match {
                  case Some(OPAMException(s)) => this.setErrorMessage(s)
-                 case None => /* XXX */}
+                 case None =>
+                   /* XXX: update the ComboViewer and select the new root */
+               }
            } catch {
                case e : java.lang.reflect.InvocationTargetException =>
                  this.setErrorMessage(e.getMessage)
