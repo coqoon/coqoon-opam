@@ -35,6 +35,6 @@ class OPAMProvider extends LoadPathImplementationProvider {
       Some(new OPAMImplementation(root.getPackage(id.substring(5))))
     } else None
   def getImplementations() =
-    root.getPackages.filter(_.name.startsWith("coq-")).map(
+    root.getPackages().filter(_.name.startsWith("coq-")).map(
         new OPAMImplementation(_))
 }

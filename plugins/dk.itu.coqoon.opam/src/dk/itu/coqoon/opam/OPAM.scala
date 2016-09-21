@@ -71,8 +71,8 @@ class OPAMRoot(val path : IPath) {
   def addRepositories(repos : Repository*) : Unit =
     addRepositories(OPAM.drop, repos:_*)
 
-  def getPackages() : Seq[Package] = {
-    read("list","-a","-s").map(s => new Package(s))
+  def getPackages(filter : String = "*") : Seq[Package] = {
+    read("list","-a","-s",filter).map(s => new Package(s))
   }
   
   def getPackage(name : String) : Package = new Package(name)
@@ -82,7 +82,8 @@ class OPAMRoot(val path : IPath) {
   }
   
   private[opam] def read(cmd : String*) : Seq[String] = {
-    opam(cmd:_*).lineStream.toList
+    try opam(cmd:_*).lineStream.toList
+    catch { case e : RuntimeException => throw new OPAMException(e.getMessage) }
   }
 
   private[opam] def apply(cmd : String*) : Boolean = {
