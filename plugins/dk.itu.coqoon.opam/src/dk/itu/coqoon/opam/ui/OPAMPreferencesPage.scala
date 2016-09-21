@@ -266,7 +266,7 @@ class OPAMPackageContentProvider extends FuturisticContentProvider {
   override def actuallyGetChildren(i : AnyRef) =
     i match {
       case r : OPAMRoot =>
-        r.getPackages
+        r.getPackages()
       case p : OPAMRoot#Package =>
         p.getAvailableVersions
       case _ => Seq()
