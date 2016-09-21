@@ -318,6 +318,13 @@ class OPAMPackageLabelProvider
     (i, column) match {
       case (i : OPAMRoot#Package, 0) =>
         i.name
+      case (i : OPAMRoot#Package, 1) =>
+        i.getInstalledVersion match {
+          case Some(i.Version(v)) =>
+            v
+          case _ =>
+            null
+        }
       case (i : OPAMRoot#Package#Version, 0) =>
         i.version
       case (i : OPAMRoot#Package#Version, 1)
