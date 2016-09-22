@@ -46,7 +46,9 @@ class OPAMRoot private[opam](val path : IPath) {
       fillCache
       ok
     }
-      
+
+    def getConfigVar(name : String) =
+      read("config", "var", this.name + ":" + name).head
     
     def getDescription() : String =
       read("show","-f","description",name).mkString("\n")
