@@ -322,6 +322,7 @@ class OPAMPreferencesPage
         cv0.getSelection match {
           case i : viewers.IStructuredSelection =>
             val root = i.getFirstElement.asInstanceOf[OPAMRoot]
+            activeRoot.set(Some(Some(root.path.toString)))
             names.get[widgets.Label]("path").foreach(
                 _.setText(root.path.toString))
             Seq(tv0, tv1).foreach(tv => {
@@ -348,25 +349,33 @@ class OPAMPreferencesPage
       case Event.Selection(ev) =>
         val d = new OPAMRootCreation(button.getShell)
         if (d.open() == org.eclipse.jface.window.Window.OK) {
-           val create_root = d.coq != "" && d.ocaml != "" && d.path != ""
-           if (create_root) try {
-               val op = new InitJob(new Path(d.path),d.ocaml,d.coq)
-               val dialog = new org.eclipse.jface.dialogs.ProgressMonitorDialog(this.getShell)
-               dialog.run(true, true, op)
-               op.error match {
-                 case Some(s) => this.setErrorMessage(s)
-                 case None =>
-                   cv0.refresh(OPAM)
-                   /* XXX: update the ComboViewer and select the new root */
-               }
-           } catch {
-               case e : java.lang.reflect.InvocationTargetException =>
-                 this.setErrorMessage(e.getMessage)
-               case e : InterruptedException =>
-                 this.setErrorMessage(e.getMessage)
-           }
+          val create_root = d.coq != "" && d.ocaml != "" && d.path != ""
+          if (create_root) try {
+              val rootPath = new Path(d.path)
+              val op = new InitJob(rootPath,d.ocaml,d.coq)
+              val dialog = new org.eclipse.jface.dialogs.ProgressMonitorDialog(this.getShell)
+              dialog.run(true, true, op)
+              op.error match {
+                case Some(s) => this.setErrorMessage(s)
+                case None =>
+                  cv0.refresh(OPAM)
+                  cv0.setSelection(new viewers.StructuredSelection(
+                      OPAM.canonicalise(rootPath)), true)
+              }
+            } catch {
+              case e : java.lang.reflect.InvocationTargetException =>
+                this.setErrorMessage(e.getMessage)
+              case e : InterruptedException =>
+                this.setErrorMessage(e.getMessage)
+            }
         }
     })
+
+    activeRoot.get.foreach(r => {
+      cv0.setSelection(new viewers.StructuredSelection(
+          OPAM.canonicalise(new Path(r))), true)
+    })
+
     names.get[widgets.Composite]("root").get
   }
 }
