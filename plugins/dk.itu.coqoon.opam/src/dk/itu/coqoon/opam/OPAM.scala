@@ -129,7 +129,7 @@ class OPAMRoot private[opam](val path : IPath) {
   
   private[opam] def read(cmd : String*) : Seq[String] = {
     try opam(cmd:_*).lineStream.toList
-    catch { case e : RuntimeException => throw new OPAMException(e.getMessage) }
+    catch { case e : RuntimeException => throw new OPAMException(cmd.mkString(" ") + ": " + e.getMessage) }
   }
 
   private[opam] def apply(cmd : String*) : Boolean = {
