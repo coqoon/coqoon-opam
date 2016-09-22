@@ -179,6 +179,8 @@ class OPAMRootCreation(s : org.eclipse.swt.widgets.Shell)
 
 class OPAMPreferencesPage
     extends PreferencePage with IWorkbenchPreferencePage {
+  noDefaultAndApplyButton()
+
   private var roots = CacheSlot(OPAMPreferences.Roots.get.toBuffer)
   private var activeRoot = CacheSlot(OPAMPreferences.ActiveRoot.get)
   override def performOk() = {
