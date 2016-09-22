@@ -92,7 +92,8 @@ class InitJob(val path : Path, val ocaml : String, val coq : String) extends IRu
     }
     monitor.worked(1)
         
-    r.getPackage("coq").getVersion(coq).install(true, logger("Building Coq"))
+    if (!r.getPackage("coq").getVersion(coq).install(true, logger("Building Coq")))
+      throw new OPAMException("Coqoon needs Coq")
     monitor.worked(1)
     
     r.addRepositories(logger("Adding repository: Coqoon"),
