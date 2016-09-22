@@ -15,5 +15,11 @@
             provider="dk.itu.coqoon.opam.OPAMProvider">
       </provider>
    </extension>
+   <extension
+         point="dk.itu.coqoon.core.coqtop">
+      <override
+            override="dk.itu.coqoon.opam.Override">
+      </override>
+   </extension>
 
 </plugin>
