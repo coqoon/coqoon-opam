@@ -52,7 +52,7 @@ class RemoveJob(val pkg : OPAMRoot#Package) extends IRunnableWithProgressAndErro
   }
 }
 class InitJob(val path : Path, val ocaml : String, val coq : String) extends IRunnableWithProgressAndError {
-  def run_or_fail(monitor : IProgressMonitor) = {
+  def run_or_fail(monitor : IProgressMonitor) : Boolean = {
     monitor.beginTask("Initialise OPAM root", 6)
     
     val logger = LOG.log(monitor, _ : String)
@@ -60,6 +60,9 @@ class InitJob(val path : Path, val ocaml : String, val coq : String) extends IRu
     val r = OPAM.initRoot(path, ocaml, logger = logger("Initializing"))
     monitor.worked(1)
 
+    // debugging: make a root without Coq
+    if (coq == "no") return true
+    
     r.addRepositories(logger("Adding repository: Coq released"),
         new r.Repository("coq","http://coq.inria.fr/opam/released"))
     monitor.worked(1)
