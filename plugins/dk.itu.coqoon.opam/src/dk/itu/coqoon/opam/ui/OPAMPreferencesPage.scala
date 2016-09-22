@@ -264,6 +264,7 @@ class OPAMPreferencesPage
     tv0.setLabelProvider(new OPAMRepositoryLabelProvider)
     tv1.setContentProvider(new OPAMPackageContentProvider(filter))
     tv1.setLabelProvider(new OPAMPackageLabelProvider)
+    viewers.ColumnViewerToolTipSupport.enableFor(tv1)
     Seq(tv0, tv1).foreach(tv => {
       tv.getTree.setLinesVisible(true)
       tv.getTree.setHeaderVisible(true)
@@ -472,7 +473,7 @@ class OPAMRepositoryLabelProvider
 }
 
 class OPAMPackageLabelProvider
-    extends viewers.BaseLabelProvider with viewers.ITableLabelProvider {
+    extends viewers.ColumnLabelProvider with viewers.ITableLabelProvider {
   override def getColumnImage(i : AnyRef, column : Int) = null
   override def getColumnText(i : AnyRef, column : Int) =
     (i, column) match {
@@ -492,6 +493,8 @@ class OPAMPackageLabelProvider
         "installed"
       case _ => null
     }
+  override def getToolTipText(i : AnyRef) =
+    i match { case i : OPAMRoot#Package => i.getDescription }
 }
 
 object OPAMPreferences {
