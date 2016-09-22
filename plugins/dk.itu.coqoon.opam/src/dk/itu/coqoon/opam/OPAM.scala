@@ -5,7 +5,7 @@ import scala.sys.process.{Process,ProcessBuilder,ProcessLogger}
 
 case class OPAMException(s : String) extends Exception(s)
 
-class OPAMRoot(val path : IPath) {
+class OPAMRoot private[opam](val path : IPath) {
   private var cache : Map[Package,Option[Package#Version]] = Map()
   
   case class Repository(val name : String, val uri : String) {
@@ -136,17 +136,30 @@ class OPAMRoot(val path : IPath) {
 } /* OPAMRoot */
 
 object OPAM {
+  import scala.ref.WeakReference
+  import scala.collection.mutable.{Map => MMap}
+  var roots : MMap[IPath, WeakReference[OPAMRoot]] = MMap()
+
+  def canonicalise(p : IPath) =
+    roots.get(p).flatMap(_.get) match {
+      case Some(root) =>
+        root
+      case None =>
+        val root = new OPAMRoot(p)
+        root.fillCache
+        roots.update(p, WeakReference(root))
+        root
+    }
+
   import dk.itu.coqoon.opam.ui.OPAMPreferences
   def getRoots() : Seq[OPAMRoot] =
-    OPAMPreferences.Roots.get.map(p => {
-      val root = new OPAMRoot(new Path(p))
-      root.fillCache
-      root })
+    OPAMPreferences.Roots.get.map(new Path(_)).map(canonicalise)
+
   def drop = ProcessLogger(s => ())
   def initRoot(path : IPath,
                ocaml : String = "system",
                logger : ProcessLogger = drop) = {
-    val root = new OPAMRoot(path)
+    val root = canonicalise(path)
     val is_root = path.addTrailingSeparator.append("config").toFile.exists()
     val is_empty_dir = path.toFile.isDirectory() && path.toFile.list().isEmpty
     if (!is_root)
