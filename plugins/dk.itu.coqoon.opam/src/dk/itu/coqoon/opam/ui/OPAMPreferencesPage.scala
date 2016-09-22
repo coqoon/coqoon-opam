@@ -43,6 +43,22 @@ class InstallAnyJob(val pkg : OPAMRoot#Package) extends IRunnableWithProgressAnd
     ok
   }
 }
+class UpdateJob(val r : OPAMRoot) extends IRunnableWithProgressAndError  {
+  def run_or_fail(monitor : IProgressMonitor) = {
+    monitor.beginTask("Updating repositories", 1)
+    val ok = r.updateRepositories(LOG.log(monitor,"Updating"))
+    monitor.worked(1)
+    ok
+  }
+}
+class UpgradeJob(val r : OPAMRoot) extends IRunnableWithProgressAndError  {
+  def run_or_fail(monitor : IProgressMonitor) = {
+    monitor.beginTask("Upgrading all packages", 1)
+    val ok = r.upgradeAllPackages(LOG.log(monitor,"Upgrading"))
+    monitor.worked(1)
+    ok
+  }
+}
 class RemoveJob(val pkg : OPAMRoot#Package) extends IRunnableWithProgressAndError  {
   def run_or_fail(monitor : IProgressMonitor) = {
     monitor.beginTask("Removing " + pkg.name, 1)
@@ -225,10 +241,23 @@ class OPAMPreferencesPage
           <tab-folder>
             <grid-data h-span="4" grab="true" />
             <tab label="Repositories">
-              <tree-viewer name="tv0">
-                <column style="left" label="Name" />
-                <column style="left" label="URI" />
-              </tree-viewer>
+              <composite>
+                <grid-layout columns="1" />
+                <tree-viewer name="tv0">
+                  <grid-data grab="true" />
+                  <column style="left" label="Name" />
+                  <column style="left" label="URI" />
+                </tree-viewer>
+                <composite>
+                 <grid-layout columns="2" />
+                  <button name="update" enabled="true">
+                   Update repositories
+                 </button>
+                 <button name="upgrade" enabled="true">
+                   Upgrade packages
+                 </button>
+                </composite>
+             </composite>
             </tab>
             <tab label="Packages">
               <composite>
@@ -333,6 +362,33 @@ class OPAMPreferencesPage
           }
         })
     })
+    val update = names.get[widgets.Button]("update").get
+    Listener.Selection(update, Listener {
+      case Event.Selection(ev) =>
+        activeRoot.get.foreach(r => {
+          val dialog =
+            new org.eclipse.jface.dialogs.ProgressMonitorDialog(this.getShell)
+          val job = new UpdateJob(OPAM.canonicalise(new Path(r)))
+          dialog.run(true, true, job)
+          job.error match {
+            case Some(s) => this.setErrorMessage(s)
+            case None => tv1.refresh()
+          }
+    })})
+    val upgrade = names.get[widgets.Button]("upgrade").get
+    Listener.Selection(upgrade, Listener {
+      case Event.Selection(ev) =>
+        activeRoot.get.foreach(r => {
+          val dialog =
+            new org.eclipse.jface.dialogs.ProgressMonitorDialog(this.getShell)
+          val job = new UpgradeJob(OPAM.canonicalise(new Path(r)))
+          dialog.run(true, true, job)
+          job.error match {
+            case Some(s) => this.setErrorMessage(s)
+            case None => tv1.refresh()
+          }
+    })})
+    
     Listener.Selection(filter, Listener {
       case Event.Selection(ev) => tv1.refresh()
     })

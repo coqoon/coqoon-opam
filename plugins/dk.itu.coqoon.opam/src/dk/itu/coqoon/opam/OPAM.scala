@@ -79,6 +79,8 @@ class OPAMRoot private[opam](val path : IPath) {
       read("config", "var", name + ":pinned").head.trim == "true"
   } /* Package */
 
+  def upgradeAllPackages(logger : ProcessLogger) =
+    this(logger,"upgrade","-y")
   
   def getRepositories() : Seq[Repository] = {
     val repo = """.*?(\S++)\s++(\S++)$""".r
@@ -92,6 +94,10 @@ class OPAMRoot private[opam](val path : IPath) {
     repos.foreach(r => this(logger, "repo","add",r.name,r.uri))
   def addRepositories(repos : Repository*) : Unit =
     addRepositories(OPAM.drop, repos:_*)
+    
+  def updateRepositories(logger : ProcessLogger) = {
+    this(logger,"update")
+  }
 
   def getPackages(filter : Package => Boolean = _ => true) : Seq[Package] =
     cache.keys.toList.filter(filter).sortWith((p1, p2) => p1.name < p2.name)
