@@ -236,20 +236,31 @@ class OPAMPreferencesPage
                   <column style="left" label="Name" />
                   <column style="left" label="Status" />
                 </tree-viewer>
-                <button name="toggle" enabled="false">
-                  <grid-data h-align="end" h-grab="true" />
-                  Install..
-                </button>
+                <composite>
+                 <grid-layout columns="2" />
+                  <grid-data align="fill" h-grab="true" />
+                  <button name="coq-only" style="check" enabled="true">
+                  <grid-data align="fill" h-grab="true" />
+                   Show only Coq packages
+                 </button>
+                 <button name="toggle" enabled="false">
+                   Install..
+                 </button>
+                </composite>
               </composite>
             </tab>
           </tab-folder>
         </composite>, c)
+        
+    val Some(filter) = names.get[widgets.Button]("coq-only")
+    filter.setSelection(true)
+        
     val Some(cv0) = names.get[viewers.ComboViewer]("cv0")
     val Seq(Some(tv0), Some(tv1)) =
       names.getMany[viewers.TreeViewer]("tv0", "tv1")
     tv0.setContentProvider(new OPAMRepositoryContentProvider)
     tv0.setLabelProvider(new OPAMRepositoryLabelProvider)
-    tv1.setContentProvider(new OPAMPackageContentProvider)
+    tv1.setContentProvider(new OPAMPackageContentProvider(filter))
     tv1.setLabelProvider(new OPAMPackageLabelProvider)
     Seq(tv0, tv1).foreach(tv => {
       tv.getTree.setLinesVisible(true)
@@ -319,6 +330,10 @@ class OPAMPreferencesPage
           }
         })
     })
+    Listener.Selection(filter, Listener {
+      case Event.Selection(ev) => tv1.refresh()
+    })
+  
     cv0.setContentProvider(new OPAMContentProvider)
     cv0.setLabelProvider(new OPAMLabelProvider)
     cv0.setInput(OPAM)
@@ -396,12 +411,14 @@ class OPAMRepositoryContentProvider extends FuturisticContentProvider {
     }
 }
 
-class OPAMPackageContentProvider extends FuturisticContentProvider {
+class OPAMPackageContentProvider(val filter : widgets.Button)
+  extends FuturisticContentProvider {
   override def actuallyGetChildren(i : AnyRef) =
     i match {
       case r : OPAMRoot =>
         val s : String = ""
         r.getPackages(p =>
+          !filter.getSelection() ||
           p.name.startsWith("coq-") ||
           p.name == "coq" || p.name == "pidetop")
       case p : OPAMRoot#Package =>
