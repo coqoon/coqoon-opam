@@ -52,7 +52,7 @@ class RemoveJob(val pkg : OPAMRoot#Package) extends IRunnableWithProgressAndErro
   }
 }
 class InitJob(val path : Path, val ocaml : String, val coq : String) extends IRunnableWithProgressAndError {
-  def run_or_fail(monitor : IProgressMonitor) = {
+  def run_or_fail(monitor : IProgressMonitor) : Boolean = {
     monitor.beginTask("Initialise OPAM root", 6)
     
     val logger = LOG.log(monitor, _ : String)
@@ -60,6 +60,9 @@ class InitJob(val path : Path, val ocaml : String, val coq : String) extends IRu
     val r = OPAM.initRoot(path, ocaml, logger = logger("Initializing"))
     monitor.worked(1)
 
+    // debugging: make a root without Coq
+    if (coq == "no") return true
+    
     r.addRepositories(logger("Adding repository: Coq released"),
         new r.Repository("coq","http://coq.inria.fr/opam/released"))
     monitor.worked(1)
@@ -91,11 +94,13 @@ class OPAMRootDelete(path : String, s : org.eclipse.swt.widgets.Shell) extends D
       var delete = false
   
       override def createDialogArea(c : widgets.Composite) = {
+        this.getShell.setText("OPAM root deletion")
+
         val names = UIXML(
           <composite name="root">
-           <grid-layout columns="1" />
+           <grid-layout margin="10" columns="1" />
            <label>Removing OPAM root {path}</label>
-           <button name="check" style="check">Also remove files</button>
+           <button name="check" style="check">Remove directory from file system</button>
           </composite>,c)
           
          val check = names.get[widgets.Button]("check").get
@@ -113,13 +118,13 @@ class OPAMRootCreation(s : org.eclipse.swt.widgets.Shell)
     var path = ""
     var coq = ""
     var ocaml = ""
-    
-    //this.getShell.setText("OPAM root parameters")
-    
+     
     override def createDialogArea(c : widgets.Composite) = {
+      this.getShell.setText("OPAM root parameters")
+
       val names = UIXML(
         <composite name="root">
-          <grid-layout columns="3" />
+          <grid-layout margin="10" columns="3" />
 
 				  <label>Path:<tool-tip>Select a directory</tool-tip></label>
 				  <text name="path"/>
@@ -233,20 +238,31 @@ class OPAMPreferencesPage
                   <column style="left" label="Name" />
                   <column style="left" label="Status" />
                 </tree-viewer>
-                <button name="toggle" enabled="false">
-                  <grid-data h-align="end" h-grab="true" />
-                  Install..
-                </button>
+                <composite>
+                 <grid-layout columns="2" />
+                  <grid-data align="fill" h-grab="true" />
+                  <button name="coq-only" style="check" enabled="true">
+                  <grid-data align="fill" h-grab="true" />
+                   Show only Coq packages
+                 </button>
+                 <button name="toggle" enabled="false">
+                   Install..
+                 </button>
+                </composite>
               </composite>
             </tab>
           </tab-folder>
         </composite>, c)
+        
+    val Some(filter) = names.get[widgets.Button]("coq-only")
+    filter.setSelection(true)
+        
     val Some(cv0) = names.get[viewers.ComboViewer]("cv0")
     val Seq(Some(tv0), Some(tv1)) =
       names.getMany[viewers.TreeViewer]("tv0", "tv1")
     tv0.setContentProvider(new OPAMRepositoryContentProvider)
     tv0.setLabelProvider(new OPAMRepositoryLabelProvider)
-    tv1.setContentProvider(new OPAMPackageContentProvider)
+    tv1.setContentProvider(new OPAMPackageContentProvider(filter))
     tv1.setLabelProvider(new OPAMPackageLabelProvider)
     Seq(tv0, tv1).foreach(tv => {
       tv.getTree.setLinesVisible(true)
@@ -316,6 +332,10 @@ class OPAMPreferencesPage
           }
         })
     })
+    Listener.Selection(filter, Listener {
+      case Event.Selection(ev) => tv1.refresh()
+    })
+  
     cv0.setContentProvider(new OPAMContentProvider)
     cv0.setLabelProvider(new OPAMLabelProvider)
     cv0.setInput(OPAM)
@@ -402,12 +422,14 @@ class OPAMRepositoryContentProvider extends FuturisticContentProvider {
     }
 }
 
-class OPAMPackageContentProvider extends FuturisticContentProvider {
+class OPAMPackageContentProvider(val filter : widgets.Button)
+  extends FuturisticContentProvider {
   override def actuallyGetChildren(i : AnyRef) =
     i match {
       case r : OPAMRoot =>
         val s : String = ""
         r.getPackages(p =>
+          !filter.getSelection() ||
           p.name.startsWith("coq-") ||
           p.name == "coq" || p.name == "pidetop")
       case p : OPAMRoot#Package =>

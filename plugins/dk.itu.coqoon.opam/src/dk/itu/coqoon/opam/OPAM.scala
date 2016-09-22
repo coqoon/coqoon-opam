@@ -106,10 +106,9 @@ class OPAMRoot private[opam](val path : IPath) {
     read("list","-a").foreach(line =>
       line match {
         case name_ver(name,version) => {
-          val p = new Package(name)
-          val v = if (version == "--" || name(0) == '#') None
-                  else Some(new p.Version(version))
-          cache += (p -> v) }
+          val p = if (name(0) == '#') None else Some(new Package(name))
+          val v = if (version == "--") None else p.map(p => new p.Version(version))
+          p.foreach(name => cache += (name -> v)) }
         case _ =>
       })
   }
