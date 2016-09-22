@@ -153,8 +153,8 @@ object OPAM {
         root
       case None =>
         val root = new OPAMRoot(p)
-        root.fillCache
         roots.update(p, WeakReference(root))
+        root.fillCache
         root
     }
 
@@ -166,13 +166,16 @@ object OPAM {
   def initRoot(path : IPath,
                ocaml : String = "system",
                logger : ProcessLogger = drop) = {
-    val root = canonicalise(path)
+    val root = new OPAMRoot(path)
     val is_root = path.addTrailingSeparator.append("config").toFile.exists()
     val is_empty_dir = path.toFile.isDirectory() && path.toFile.list().isEmpty
     if (!is_root)
-      if (is_empty_dir || !path.toFile.exists()) root(logger,"init","--comp="+ocaml,"-j","2","-n")
-      else throw new OPAMException("path " + path + " is a non empty directory")
+      if (is_empty_dir || !path.toFile.exists()) {
+        root(logger,"init","--comp="+ocaml,"-j","2","-n")
+        roots.update(path, WeakReference(root))
+      } else throw new OPAMException("path " + path + " is a non empty directory")
     OPAMPreferences.Roots.set(OPAMPreferences.Roots.get() :+ path.toString)
+    root.fillCache
     root
   }
   
