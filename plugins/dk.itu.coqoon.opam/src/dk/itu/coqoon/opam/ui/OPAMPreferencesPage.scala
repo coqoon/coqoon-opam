@@ -91,11 +91,13 @@ class OPAMRootDelete(path : String, s : org.eclipse.swt.widgets.Shell) extends D
       var delete = false
   
       override def createDialogArea(c : widgets.Composite) = {
+        this.getShell.setText("OPAM root deletion")
+
         val names = UIXML(
           <composite name="root">
-           <grid-layout columns="1" />
+           <grid-layout margin="10" columns="1" />
            <label>Removing OPAM root {path}</label>
-           <button name="check" style="check">Also remove files</button>
+           <button name="check" style="check">Remove directory from file system</button>
           </composite>,c)
           
          val check = names.get[widgets.Button]("check").get
@@ -113,13 +115,13 @@ class OPAMRootCreation(s : org.eclipse.swt.widgets.Shell)
     var path = ""
     var coq = ""
     var ocaml = ""
-    
-    //this.getShell.setText("OPAM root parameters")
-    
+     
     override def createDialogArea(c : widgets.Composite) = {
+      this.getShell.setText("OPAM root parameters")
+
       val names = UIXML(
         <composite name="root">
-          <grid-layout columns="3" />
+          <grid-layout margin="10" columns="3" />
 
 				  <label>Path:<tool-tip>Select a directory</tool-tip></label>
 				  <text name="path"/>
