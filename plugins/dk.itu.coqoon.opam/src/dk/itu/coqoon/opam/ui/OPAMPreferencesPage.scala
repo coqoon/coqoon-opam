@@ -69,7 +69,7 @@ class RemoveJob(val pkg : OPAMRoot#Package) extends IRunnableWithProgressAndErro
 }
 class InitJob(val path : Path, val ocaml : String, val coq : String) extends IRunnableWithProgressAndError {
   def run_or_fail(monitor : IProgressMonitor) : Boolean = {
-    monitor.beginTask("Initialise OPAM root", 6)
+    monitor.beginTask("Initialise OPAM root", 7)
     
     val logger = LOG.log(monitor, _ : String)
 
@@ -102,6 +102,10 @@ class InitJob(val path : Path, val ocaml : String, val coq : String) extends IRu
     if (!r.getPackage("pidetop").installAnyVersion(logger("Installing pidetop")))
       throw new OPAMException("Coqoon needs pidetop")
     monitor.worked(1)
+
+    r.getPackage("ocamlbuild").installAnyVersion(logger("Installing ocamlbuild"))
+    monitor.worked(1)
+
     true
   }
 }
