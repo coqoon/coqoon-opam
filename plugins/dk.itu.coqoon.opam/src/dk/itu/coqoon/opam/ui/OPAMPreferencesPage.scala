@@ -83,7 +83,7 @@ class InitJob(val path : Path, val ocaml : String, val coq : String) extends IRu
         new r.Repository("coq","http://coq.inria.fr/opam/released"))
     monitor.worked(1)
 
-    val dev_version = """dev$""".r  
+    val dev_version = """.*dev$""".r  
     coq match {
       case dev_version() => 
         r.addRepositories(logger("Adding repository: Coq core-dev"),
