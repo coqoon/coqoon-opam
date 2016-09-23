@@ -10,7 +10,7 @@ class OPAMProvider extends LoadPathImplementationProvider {
     override def getName() = p.name
     override def getAuthor() = ""
     override def getDescription = p.getDescription
-    override def getIdentifier = "opam:" + p.name
+    override def getIdentifier = p.name
     override def getLoadPath =
       p.getInstalledVersion match {
         case Some(v) =>
