@@ -1,10 +1,10 @@
 package dk.itu.coqoon.opam
 
 import dk.itu.coqoon.core.model._
+import dk.itu.coqoon.opam.ui.OPAMPreferences
+import org.eclipse.core.runtime.{Path, IPath}
 
 class OPAMProvider extends LoadPathImplementationProvider {
-  lazy val root = OPAM.getRoots.head
-
   class OPAMImplementation(
       p : OPAMRoot#Package) extends LoadPathImplementation {
     override def getName() = p.name
@@ -19,22 +19,28 @@ class OPAMProvider extends LoadPathImplementationProvider {
            * empty fragment to indicate success */
           Right(Seq())
         case None =>
-          Left(p.getAvailableVersions match {
-            case l if l.length > 0 =>
-              LoadPathImplementation.Retrievable
-            case l =>
-              LoadPathImplementation.NotRetrievable
-          })
+          /* If we get here, then the name of this package is known to OPAM and
+           * we know it has some available versions; indicate that it could be
+           * installed */
+          Left(LoadPathImplementation.Retrievable)
       }
     override def getProvider = OPAMProvider.this
   }
 
+  private def getRoot() =
+    OPAMPreferences.ActiveRoot.get.map(s => OPAM.canonicalise(new Path(s)))
+
   def getName() = "OPAM"
   def getImplementation(id : String) =
-    if (id.startsWith("opam:")) {
-      Some(new OPAMImplementation(root.getPackage(id.substring(5))))
-    } else None
+    getRoot match {
+      case Some(r) =>
+        val p = r.getPackage(id)
+        if (p.getLatestVersion != None) {
+          Some(new OPAMImplementation(p))
+        } else None
+      case _ => None
+    }
   def getImplementations() =
-    root.getPackages().filter(_.name.startsWith("coq-")).map(
-        new OPAMImplementation(_))
+    getRoot.toSeq.flatMap(_.getPackages(
+        _.name.startsWith("coq-"))).map(new OPAMImplementation(_))
 }
