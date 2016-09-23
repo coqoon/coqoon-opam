@@ -98,7 +98,9 @@ class OPAMRoot private[opam](val path : IPath) {
     addRepositories(OPAM.drop, repos:_*)
     
   def updateRepositories(logger : ProcessLogger) = {
-    this(logger,"update")
+    val ok = this(logger,"update")
+    fillCache
+    ok
   }
 
   def getPackages(filter : Package => Boolean = _ => true) : Seq[Package] =
