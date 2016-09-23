@@ -43,6 +43,22 @@ class InstallAnyJob(val pkg : OPAMRoot#Package) extends IRunnableWithProgressAnd
     ok
   }
 }
+class UpdateJob(val r : OPAMRoot) extends IRunnableWithProgressAndError  {
+  def run_or_fail(monitor : IProgressMonitor) = {
+    monitor.beginTask("Updating repositories", 1)
+    val ok = r.updateRepositories(LOG.log(monitor,"Updating"))
+    monitor.worked(1)
+    ok
+  }
+}
+class UpgradeJob(val r : OPAMRoot) extends IRunnableWithProgressAndError  {
+  def run_or_fail(monitor : IProgressMonitor) = {
+    monitor.beginTask("Upgrading all packages", 1)
+    val ok = r.upgradeAllPackages(LOG.log(monitor,"Upgrading"))
+    monitor.worked(1)
+    ok
+  }
+}
 class RemoveJob(val pkg : OPAMRoot#Package) extends IRunnableWithProgressAndError  {
   def run_or_fail(monitor : IProgressMonitor) = {
     monitor.beginTask("Removing " + pkg.name, 1)
@@ -53,7 +69,7 @@ class RemoveJob(val pkg : OPAMRoot#Package) extends IRunnableWithProgressAndErro
 }
 class InitJob(val path : Path, val ocaml : String, val coq : String) extends IRunnableWithProgressAndError {
   def run_or_fail(monitor : IProgressMonitor) : Boolean = {
-    monitor.beginTask("Initialise OPAM root", 6)
+    monitor.beginTask("Initialise OPAM root", 7)
     
     val logger = LOG.log(monitor, _ : String)
 
@@ -67,7 +83,7 @@ class InitJob(val path : Path, val ocaml : String, val coq : String) extends IRu
         new r.Repository("coq","http://coq.inria.fr/opam/released"))
     monitor.worked(1)
 
-    val dev_version = """dev$""".r  
+    val dev_version = """.*dev$""".r  
     coq match {
       case dev_version() => 
         r.addRepositories(logger("Adding repository: Coq core-dev"),
@@ -76,7 +92,8 @@ class InitJob(val path : Path, val ocaml : String, val coq : String) extends IRu
     }
     monitor.worked(1)
         
-    r.getPackage("coq").getVersion(coq).install(true, logger("Building Coq"))
+    if (!r.getPackage("coq").getVersion(coq).install(true, logger("Building Coq")))
+      throw new OPAMException("Coqoon needs Coq")
     monitor.worked(1)
     
     r.addRepositories(logger("Adding repository: Coqoon"),
@@ -86,6 +103,10 @@ class InitJob(val path : Path, val ocaml : String, val coq : String) extends IRu
     if (!r.getPackage("pidetop").installAnyVersion(logger("Installing pidetop")))
       throw new OPAMException("Coqoon needs pidetop")
     monitor.worked(1)
+
+    r.getPackage("ocamlbuild").installAnyVersion(logger("Installing ocamlbuild"))
+    monitor.worked(1)
+
     true
   }
 }
@@ -225,10 +246,23 @@ class OPAMPreferencesPage
           <tab-folder>
             <grid-data h-span="4" grab="true" />
             <tab label="Repositories">
-              <tree-viewer name="tv0">
-                <column style="left" label="Name" />
-                <column style="left" label="URI" />
-              </tree-viewer>
+              <composite>
+                <grid-layout columns="1" />
+                <tree-viewer name="tv0">
+                  <grid-data grab="true" />
+                  <column style="left" label="Name" />
+                  <column style="left" label="URI" />
+                </tree-viewer>
+                <composite>
+                 <grid-layout columns="2" />
+                  <button name="update" enabled="true">
+                   Update repositories
+                 </button>
+                 <button name="upgrade" enabled="true">
+                   Upgrade packages
+                 </button>
+                </composite>
+             </composite>
             </tab>
             <tab label="Packages">
               <composite>
@@ -264,6 +298,7 @@ class OPAMPreferencesPage
     tv0.setLabelProvider(new OPAMRepositoryLabelProvider)
     tv1.setContentProvider(new OPAMPackageContentProvider(filter))
     tv1.setLabelProvider(new OPAMPackageLabelProvider)
+    viewers.ColumnViewerToolTipSupport.enableFor(tv1)
     Seq(tv0, tv1).foreach(tv => {
       tv.getTree.setLinesVisible(true)
       tv.getTree.setHeaderVisible(true)
@@ -332,6 +367,33 @@ class OPAMPreferencesPage
           }
         })
     })
+    val update = names.get[widgets.Button]("update").get
+    Listener.Selection(update, Listener {
+      case Event.Selection(ev) =>
+        activeRoot.get.foreach(r => {
+          val dialog =
+            new org.eclipse.jface.dialogs.ProgressMonitorDialog(this.getShell)
+          val job = new UpdateJob(OPAM.canonicalise(new Path(r)))
+          dialog.run(true, true, job)
+          job.error match {
+            case Some(s) => this.setErrorMessage(s)
+            case None => tv1.refresh()
+          }
+    })})
+    val upgrade = names.get[widgets.Button]("upgrade").get
+    Listener.Selection(upgrade, Listener {
+      case Event.Selection(ev) =>
+        activeRoot.get.foreach(r => {
+          val dialog =
+            new org.eclipse.jface.dialogs.ProgressMonitorDialog(this.getShell)
+          val job = new UpgradeJob(OPAM.canonicalise(new Path(r)))
+          dialog.run(true, true, job)
+          job.error match {
+            case Some(s) => this.setErrorMessage(s)
+            case None => tv1.refresh()
+          }
+    })})
+    
     Listener.Selection(filter, Listener {
       case Event.Selection(ev) => tv1.refresh()
     })
@@ -472,7 +534,7 @@ class OPAMRepositoryLabelProvider
 }
 
 class OPAMPackageLabelProvider
-    extends viewers.BaseLabelProvider with viewers.ITableLabelProvider {
+    extends viewers.ColumnLabelProvider with viewers.ITableLabelProvider {
   override def getColumnImage(i : AnyRef, column : Int) = null
   override def getColumnText(i : AnyRef, column : Int) =
     (i, column) match {
@@ -492,6 +554,8 @@ class OPAMPackageLabelProvider
         "installed"
       case _ => null
     }
+  override def getToolTipText(i : AnyRef) =
+    i match { case i : OPAMRoot#Package => i.getDescription }
 }
 
 object OPAMPreferences {

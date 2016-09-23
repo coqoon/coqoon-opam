@@ -79,6 +79,8 @@ class OPAMRoot private[opam](val path : IPath) {
       read("config", "var", name + ":pinned").head.trim == "true"
   } /* Package */
 
+  def upgradeAllPackages(logger : ProcessLogger) =
+    this(logger,"upgrade","-y")
   
   def getRepositories() : Seq[Repository] = {
     val repo = """.*?(\S++)\s++(\S++)$""".r
@@ -92,6 +94,10 @@ class OPAMRoot private[opam](val path : IPath) {
     repos.foreach(r => this(logger, "repo","add",r.name,r.uri))
   def addRepositories(repos : Repository*) : Unit =
     addRepositories(OPAM.drop, repos:_*)
+    
+  def updateRepositories(logger : ProcessLogger) = {
+    this(logger,"update")
+  }
 
   def getPackages(filter : Package => Boolean = _ => true) : Seq[Package] =
     cache.keys.toList.filter(filter).sortWith((p1, p2) => p1.name < p2.name)
@@ -123,7 +129,7 @@ class OPAMRoot private[opam](val path : IPath) {
   
   private[opam] def read(cmd : String*) : Seq[String] = {
     try opam(cmd:_*).lineStream.toList
-    catch { case e : RuntimeException => throw new OPAMException(e.getMessage) }
+    catch { case e : RuntimeException => throw new OPAMException(cmd.mkString(" ") + ": " + e.getMessage) }
   }
 
   private[opam] def apply(cmd : String*) : Boolean = {
@@ -147,8 +153,8 @@ object OPAM {
         root
       case None =>
         val root = new OPAMRoot(p)
-        root.fillCache
         roots.update(p, WeakReference(root))
+        root.fillCache
         root
     }
 
@@ -160,13 +166,16 @@ object OPAM {
   def initRoot(path : IPath,
                ocaml : String = "system",
                logger : ProcessLogger = drop) = {
-    val root = canonicalise(path)
+    val root = new OPAMRoot(path)
     val is_root = path.addTrailingSeparator.append("config").toFile.exists()
     val is_empty_dir = path.toFile.isDirectory() && path.toFile.list().isEmpty
     if (!is_root)
-      if (is_empty_dir || !path.toFile.exists()) root(logger,"init","--comp="+ocaml,"-j","2","-n")
-      else throw new OPAMException("path " + path + " is a non empty directory")
+      if (is_empty_dir || !path.toFile.exists()) {
+        root(logger,"init","--comp="+ocaml,"-j","2","-n")
+        roots.update(path, WeakReference(root))
+      } else throw new OPAMException("path " + path + " is a non empty directory")
     OPAMPreferences.Roots.set(OPAMPreferences.Roots.get() :+ path.toString)
+    root.fillCache
     root
   }
   
