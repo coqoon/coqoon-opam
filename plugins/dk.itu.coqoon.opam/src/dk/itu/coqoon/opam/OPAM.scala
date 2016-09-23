@@ -54,12 +54,14 @@ class OPAMRoot private[opam](val path : IPath) {
       read("show","-f","description",name).mkString("\n")
 
 
-    def getAvailableVersions() : Seq[Version] = {
-      val version = """([^, ]++)""".r
-      val versions_str =
-        read("show","-f","available-version,available-versions",name).head.split(':')(1)
-      (version findAllIn versions_str).map(new Version(_)).toList
-    }
+    def getAvailableVersions() : Seq[Version] =
+      if (cache.contains(this)) {
+        val version = """([^, ]++)""".r
+        val versions_str =
+          read("show", "-f",
+              "available-version,available-versions", name).head.split(':')(1)
+        (version findAllIn versions_str).map(new Version(_)).toList
+      } else Seq()
 
     def getInstalledVersion() : Option[Package#Version] =
       try cache(this)
