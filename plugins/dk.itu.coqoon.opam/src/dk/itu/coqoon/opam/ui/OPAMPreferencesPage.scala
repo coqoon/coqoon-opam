@@ -234,6 +234,10 @@ class OPAMPreferencesPage
       activeRoot.get.foreach(OPAMPreferences.ActiveRoot.set)
     true
   }
+  def file_delete(file: java.io.File) {
+    if (file.isDirectory) file.listFiles.foreach(file_delete(_))
+    file.delete
+  }
 
   override def init(w : IWorkbench) = ()
   override def createContents(c : widgets.Composite) = {
@@ -441,7 +445,9 @@ class OPAMPreferencesPage
         val selected = cv0.getSelection.asInstanceOf[viewers.IStructuredSelection].getFirstElement.asInstanceOf[OPAMRoot].path.toString
         val d = new OPAMRootDelete(selected, this.getShell)
         if (d.open() == org.eclipse.jface.window.Window.OK) {
-          // if (d.delete) FIXME
+          if (d.delete) {
+            file_delete(new java.io.File(selected))
+          }
           OPAMPreferences.Roots.set(OPAMPreferences.Roots.get().filter(x => x != selected))
         }
     }})
