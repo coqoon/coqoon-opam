@@ -585,13 +585,18 @@ class OPAMPackageLabelProvider
 object OPAMPreferences {
   object Roots {
     final val ID = "roots"
-    def get() =
-      Activator.getDefault.getPreferenceStore.getString(ID).split(";").filter(
-          !_.isEmpty)
+    def valid(r : String) = !r.isEmpty && (new java.io.File(r)).exists
+    
+    def get() = {
+      val prefs = Activator.getDefault.getPreferenceStore
+      val roots = prefs.getString(ID).split(";").distinct.filter(valid)
+      set(roots) // we keep the list clean
+      roots
+    }
     def set(roots : Seq[String]) =
       if (roots.forall(!_.contains(";"))) {
         Activator.getDefault.getPreferenceStore().setValue(
-            ID, roots.filter(!_.isEmpty).mkString(";"))
+            ID, roots.filter(valid).mkString(";"))
       }
   }
   object ActiveRoot {
