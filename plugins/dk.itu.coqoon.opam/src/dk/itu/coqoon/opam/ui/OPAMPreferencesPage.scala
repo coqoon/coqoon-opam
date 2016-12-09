@@ -179,7 +179,7 @@ class OPAMRootCreation(s : org.eclipse.swt.widgets.Shell)
         Listener.Modify(wcoq, Listener {
           case Event.Modify(_) => coq = wcoq.getText.trim
         })
-        wcoq.add("8.5.2")
+        wcoq.add("8.5.3")
         wcoq.add("8.6.dev")
         wcoq.select(0)
       })
@@ -189,8 +189,8 @@ class OPAMRootCreation(s : org.eclipse.swt.widgets.Shell)
         Listener.Modify(wocaml, Listener {
           case Event.Modify(_) => ocaml = wocaml.getText.trim
         })
-        wocaml.add("4.01.0")
         wocaml.add("4.02.3")
+        wocaml.add("4.03.0")
         wocaml.add("system")
         wocaml.select(0)
       })
