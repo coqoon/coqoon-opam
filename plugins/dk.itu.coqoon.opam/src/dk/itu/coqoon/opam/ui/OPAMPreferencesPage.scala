@@ -13,8 +13,14 @@ import org.eclipse.jface.operation.IRunnableWithProgress
 import org.eclipse.jface.dialogs.{ProgressMonitorDialog, Dialog}
 
 object LOG {
-  def log(m : IProgressMonitor, prefix : String) : scala.sys.process.ProcessLogger =
-    scala.sys.process.ProcessLogger((s) => { m.subTask(prefix + ":\n " + s) })
+  def log2errorConsole(text : String) =
+    Activator.getDefault.getLog.log(
+      new Status(IStatus.INFO, "dk.itu.coqoon.opam", IStatus.OK, text,
+          new Exception("(dummy stack trace exception)").fillInStackTrace))
+  def log(toErrorLog : Boolean, m : IProgressMonitor, prefix : String) : scala.sys.process.ProcessLogger =
+    scala.sys.process.ProcessLogger((s) => { 
+      if (toErrorLog) log2errorConsole(s)
+      m.subTask(prefix + ":\n " + s) })
 }
 
 abstract class IRunnableWithProgressAndError extends IRunnableWithProgress {
@@ -30,7 +36,7 @@ abstract class IRunnableWithProgressAndError extends IRunnableWithProgress {
 class InstallVersionJob(val ver : OPAMRoot#Package#Version) extends IRunnableWithProgressAndError {
   def run_or_fail(monitor : IProgressMonitor) = {
     monitor.beginTask("Installing " + ver.getPackage.name + " " + ver.version, 1)
-    val ok = ver.install(pin = false, LOG.log(monitor,"Installing"))
+    val ok = ver.install(pin = false, LOG.log(true,monitor,"Installing"))
     monitor.worked(1)
     ok
   }
@@ -38,7 +44,7 @@ class InstallVersionJob(val ver : OPAMRoot#Package#Version) extends IRunnableWit
 class InstallAnyJob(val pkg : OPAMRoot#Package) extends IRunnableWithProgressAndError  {
   def run_or_fail(monitor : IProgressMonitor) = {
     monitor.beginTask("Installing " + pkg.name, 1)
-    val ok = pkg.installAnyVersion(LOG.log(monitor,"Installing"))
+    val ok = pkg.installAnyVersion(LOG.log(true,monitor,"Installing"))
     monitor.worked(1)
     ok
   }
@@ -46,7 +52,7 @@ class InstallAnyJob(val pkg : OPAMRoot#Package) extends IRunnableWithProgressAnd
 class UpdateJob(val r : OPAMRoot) extends IRunnableWithProgressAndError  {
   def run_or_fail(monitor : IProgressMonitor) = {
     monitor.beginTask("Updating repositories", 1)
-    val ok = r.updateRepositories(LOG.log(monitor,"Updating"))
+    val ok = r.updateRepositories(LOG.log(true,monitor,"Updating"))
     monitor.worked(1)
     ok
   }
@@ -54,7 +60,7 @@ class UpdateJob(val r : OPAMRoot) extends IRunnableWithProgressAndError  {
 class UpgradeJob(val r : OPAMRoot) extends IRunnableWithProgressAndError  {
   def run_or_fail(monitor : IProgressMonitor) = {
     monitor.beginTask("Upgrading all packages", 1)
-    val ok = r.upgradeAllPackages(LOG.log(monitor,"Upgrading"))
+    val ok = r.upgradeAllPackages(LOG.log(true,monitor,"Upgrading"))
     monitor.worked(1)
     ok
   }
@@ -67,11 +73,13 @@ class RemoveJob(val pkg : OPAMRoot#Package) extends IRunnableWithProgressAndErro
     true
   }
 }
-class InitJob(val path : Path, val ocaml : String, val coq : String) extends IRunnableWithProgressAndError {
+class InitJob(val path : Path, val ocaml : String, val coq : String,val keep_log : Boolean)
+ extends IRunnableWithProgressAndError {
+  
   def run_or_fail(monitor : IProgressMonitor) : Boolean = {
     monitor.beginTask("Initialise OPAM root", 7)
     
-    val logger = LOG.log(monitor, _ : String)
+    val logger = LOG.log(keep_log, monitor, _ : String)
 
     val r = OPAM.initRoot(path, ocaml, logger = logger("Initializing"))
     monitor.worked(1)
@@ -139,6 +147,7 @@ class OPAMRootCreation(s : org.eclipse.swt.widgets.Shell)
     var path = ""
     var coq = ""
     var ocaml = ""
+    var log = true
      
     override def createDialogArea(c : widgets.Composite) = {
       this.getShell.setText("OPAM root parameters")
@@ -159,6 +168,10 @@ class OPAMRootCreation(s : org.eclipse.swt.widgets.Shell)
           <combo name="ocaml">
             <grid-data h-grab="true" h-span="2" />
           </combo>
+          <button name="log" style="check" enabled="true">
+            Log installation commands to Error Log
+            <grid-data h-grab="true" h-span="3" />
+          </button>
         </composite>,c)
 
       val wcoq = names.get[widgets.Combo]("coq")
@@ -198,6 +211,11 @@ class OPAMRootCreation(s : org.eclipse.swt.widgets.Shell)
             case Some(p) => wpath.get.setText(p)
             case _ => }
       })
+      
+      val Some(wlog) = names.get[widgets.Button]("log")
+      wlog.setSelection(true)
+      Listener.Selection(wlog, Listener {
+        case _ => log = wlog.getSelection })
       
       names.get[widgets.Composite]("root").get
     }
@@ -436,7 +454,7 @@ class OPAMPreferencesPage
           val create_root = d.coq != "" && d.ocaml != "" && d.path != ""
           if (create_root) try {
               val rootPath = new Path(d.path)
-              val op = new InitJob(rootPath,d.ocaml,d.coq)
+              val op = new InitJob(rootPath,d.ocaml,d.coq,d.log)
               val dialog = new org.eclipse.jface.dialogs.ProgressMonitorDialog(this.getShell)
               dialog.run(true, true, op)
               op.error match {
