@@ -96,6 +96,8 @@ class InitJob(val path : Path, val ocaml : String, val coq : String,val keep_log
       case dev_version() => 
         r.addRepositories(logger("Adding repository: Coq core-dev"),
           new r.Repository("core-dev","http://coq.inria.fr/opam/core-dev"))
+        r.addRepositories(logger("Adding repository: Coq extra-dev"),
+          new r.Repository("extra-dev","http://coq.inria.fr/opam/extra-dev"))
       case _ => // no need for extra repos
     }
     monitor.worked(1)
