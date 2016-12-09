@@ -101,7 +101,7 @@ class InitJob(val path : Path, val ocaml : String, val coq : String,val keep_log
     monitor.worked(1)
         
     if (!r.getPackage("coq").getVersion(coq).install(true, logger("Building Coq")))
-      throw new OPAMException("Coqoon needs Coq")
+      throw new OPAMException("Coq installation failed (check Error Log tab)")
     monitor.worked(1)
     
     r.addRepositories(logger("Adding repository: Coqoon"),
@@ -109,7 +109,7 @@ class InitJob(val path : Path, val ocaml : String, val coq : String,val keep_log
     monitor.worked(1)
 
     if (!r.getPackage("pidetop").installAnyVersion(logger("Installing pidetop")))
-      throw new OPAMException("Coqoon needs pidetop")
+      throw new OPAMException("pidetop installation failed (check Error Log tab)")
     monitor.worked(1)
 
     r.getPackage("ocamlbuild").installAnyVersion(logger("Installing ocamlbuild"))
