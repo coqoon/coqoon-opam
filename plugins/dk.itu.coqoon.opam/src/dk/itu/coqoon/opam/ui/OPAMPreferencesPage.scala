@@ -13,8 +13,14 @@ import org.eclipse.jface.operation.IRunnableWithProgress
 import org.eclipse.jface.dialogs.{ProgressMonitorDialog, Dialog}
 
 object LOG {
-  def log(m : IProgressMonitor, prefix : String) : scala.sys.process.ProcessLogger =
-    scala.sys.process.ProcessLogger((s) => { m.subTask(prefix + ":\n " + s) })
+  def log2errorConsole(text : String) =
+    Activator.getDefault.getLog.log(
+      new Status(IStatus.INFO, "dk.itu.coqoon.opam", IStatus.OK, text,
+          new Exception("(dummy stack trace exception)").fillInStackTrace))
+  def log(toErrorLog : Boolean, m : IProgressMonitor, prefix : String) : scala.sys.process.ProcessLogger =
+    scala.sys.process.ProcessLogger((s) => { 
+      if (toErrorLog) log2errorConsole(s)
+      m.subTask(prefix + ":\n " + s) })
 }
 
 abstract class IRunnableWithProgressAndError extends IRunnableWithProgress {
@@ -30,7 +36,7 @@ abstract class IRunnableWithProgressAndError extends IRunnableWithProgress {
 class InstallVersionJob(val ver : OPAMRoot#Package#Version) extends IRunnableWithProgressAndError {
   def run_or_fail(monitor : IProgressMonitor) = {
     monitor.beginTask("Installing " + ver.getPackage.name + " " + ver.version, 1)
-    val ok = ver.install(pin = false, LOG.log(monitor,"Installing"))
+    val ok = ver.install(pin = false, LOG.log(true,monitor,"Installing"))
     monitor.worked(1)
     ok
   }
@@ -38,7 +44,7 @@ class InstallVersionJob(val ver : OPAMRoot#Package#Version) extends IRunnableWit
 class InstallAnyJob(val pkg : OPAMRoot#Package) extends IRunnableWithProgressAndError  {
   def run_or_fail(monitor : IProgressMonitor) = {
     monitor.beginTask("Installing " + pkg.name, 1)
-    val ok = pkg.installAnyVersion(LOG.log(monitor,"Installing"))
+    val ok = pkg.installAnyVersion(LOG.log(true,monitor,"Installing"))
     monitor.worked(1)
     ok
   }
@@ -46,7 +52,7 @@ class InstallAnyJob(val pkg : OPAMRoot#Package) extends IRunnableWithProgressAnd
 class UpdateJob(val r : OPAMRoot) extends IRunnableWithProgressAndError  {
   def run_or_fail(monitor : IProgressMonitor) = {
     monitor.beginTask("Updating repositories", 1)
-    val ok = r.updateRepositories(LOG.log(monitor,"Updating"))
+    val ok = r.updateRepositories(LOG.log(true,monitor,"Updating"))
     monitor.worked(1)
     ok
   }
@@ -54,7 +60,7 @@ class UpdateJob(val r : OPAMRoot) extends IRunnableWithProgressAndError  {
 class UpgradeJob(val r : OPAMRoot) extends IRunnableWithProgressAndError  {
   def run_or_fail(monitor : IProgressMonitor) = {
     monitor.beginTask("Upgrading all packages", 1)
-    val ok = r.upgradeAllPackages(LOG.log(monitor,"Upgrading"))
+    val ok = r.upgradeAllPackages(LOG.log(true,monitor,"Upgrading"))
     monitor.worked(1)
     ok
   }
@@ -67,11 +73,13 @@ class RemoveJob(val pkg : OPAMRoot#Package) extends IRunnableWithProgressAndErro
     true
   }
 }
-class InitJob(val path : Path, val ocaml : String, val coq : String) extends IRunnableWithProgressAndError {
+class InitJob(val path : Path, val ocaml : String, val coq : String,val keep_log : Boolean)
+ extends IRunnableWithProgressAndError {
+  
   def run_or_fail(monitor : IProgressMonitor) : Boolean = {
     monitor.beginTask("Initialise OPAM root", 7)
     
-    val logger = LOG.log(monitor, _ : String)
+    val logger = LOG.log(keep_log, monitor, _ : String)
 
     val r = OPAM.initRoot(path, ocaml, logger = logger("Initializing"))
     monitor.worked(1)
@@ -88,12 +96,14 @@ class InitJob(val path : Path, val ocaml : String, val coq : String) extends IRu
       case dev_version() => 
         r.addRepositories(logger("Adding repository: Coq core-dev"),
           new r.Repository("core-dev","http://coq.inria.fr/opam/core-dev"))
+        r.addRepositories(logger("Adding repository: Coq extra-dev"),
+          new r.Repository("extra-dev","http://coq.inria.fr/opam/extra-dev"))
       case _ => // no need for extra repos
     }
     monitor.worked(1)
         
     if (!r.getPackage("coq").getVersion(coq).install(true, logger("Building Coq")))
-      throw new OPAMException("Coqoon needs Coq")
+      throw new OPAMException("Coq installation failed (check Error Log tab)")
     monitor.worked(1)
     
     r.addRepositories(logger("Adding repository: Coqoon"),
@@ -101,7 +111,7 @@ class InitJob(val path : Path, val ocaml : String, val coq : String) extends IRu
     monitor.worked(1)
 
     if (!r.getPackage("pidetop").installAnyVersion(logger("Installing pidetop")))
-      throw new OPAMException("Coqoon needs pidetop")
+      throw new OPAMException("pidetop installation failed (check Error Log tab)")
     monitor.worked(1)
 
     r.getPackage("ocamlbuild").installAnyVersion(logger("Installing ocamlbuild"))
@@ -139,6 +149,7 @@ class OPAMRootCreation(s : org.eclipse.swt.widgets.Shell)
     var path = ""
     var coq = ""
     var ocaml = ""
+    var log = true
      
     override def createDialogArea(c : widgets.Composite) = {
       this.getShell.setText("OPAM root parameters")
@@ -159,6 +170,10 @@ class OPAMRootCreation(s : org.eclipse.swt.widgets.Shell)
           <combo name="ocaml">
             <grid-data h-grab="true" h-span="2" />
           </combo>
+          <button name="log" style="check" enabled="true">
+            Log installation commands to Error Log
+            <grid-data h-grab="true" h-span="3" />
+          </button>
         </composite>,c)
 
       val wcoq = names.get[widgets.Combo]("coq")
@@ -166,7 +181,7 @@ class OPAMRootCreation(s : org.eclipse.swt.widgets.Shell)
         Listener.Modify(wcoq, Listener {
           case Event.Modify(_) => coq = wcoq.getText.trim
         })
-        wcoq.add("8.5.2")
+        wcoq.add("8.5.3")
         wcoq.add("8.6.dev")
         wcoq.select(0)
       })
@@ -176,8 +191,8 @@ class OPAMRootCreation(s : org.eclipse.swt.widgets.Shell)
         Listener.Modify(wocaml, Listener {
           case Event.Modify(_) => ocaml = wocaml.getText.trim
         })
-        wocaml.add("4.01.0")
         wocaml.add("4.02.3")
+        wocaml.add("4.03.0")
         wocaml.add("system")
         wocaml.select(0)
       })
@@ -199,6 +214,11 @@ class OPAMRootCreation(s : org.eclipse.swt.widgets.Shell)
             case _ => }
       })
       
+      val Some(wlog) = names.get[widgets.Button]("log")
+      wlog.setSelection(true)
+      Listener.Selection(wlog, Listener {
+        case _ => log = wlog.getSelection })
+      
       names.get[widgets.Composite]("root").get
     }
 }
@@ -215,6 +235,10 @@ class OPAMPreferencesPage
     if (activeRoot.get != OPAMPreferences.ActiveRoot.get)
       activeRoot.get.foreach(OPAMPreferences.ActiveRoot.set)
     true
+  }
+  def file_delete(file: java.io.File) {
+    if (file.isDirectory) file.listFiles.foreach(file_delete(_))
+    file.delete
   }
 
   override def init(w : IWorkbench) = ()
@@ -423,7 +447,9 @@ class OPAMPreferencesPage
         val selected = cv0.getSelection.asInstanceOf[viewers.IStructuredSelection].getFirstElement.asInstanceOf[OPAMRoot].path.toString
         val d = new OPAMRootDelete(selected, this.getShell)
         if (d.open() == org.eclipse.jface.window.Window.OK) {
-          // if (d.delete) FIXME
+          if (d.delete) {
+            file_delete(new java.io.File(selected))
+          }
           OPAMPreferences.Roots.set(OPAMPreferences.Roots.get().filter(x => x != selected))
         }
     }})
@@ -436,7 +462,7 @@ class OPAMPreferencesPage
           val create_root = d.coq != "" && d.ocaml != "" && d.path != ""
           if (create_root) try {
               val rootPath = new Path(d.path)
-              val op = new InitJob(rootPath,d.ocaml,d.coq)
+              val op = new InitJob(rootPath,d.ocaml,d.coq,d.log)
               val dialog = new org.eclipse.jface.dialogs.ProgressMonitorDialog(this.getShell)
               dialog.run(true, true, op)
               op.error match {
@@ -561,13 +587,18 @@ class OPAMPackageLabelProvider
 object OPAMPreferences {
   object Roots {
     final val ID = "roots"
-    def get() =
-      Activator.getDefault.getPreferenceStore.getString(ID).split(";").filter(
-          !_.isEmpty)
+    def valid(r : String) = !r.isEmpty && (new java.io.File(r)).exists
+    
+    def get() = {
+      val prefs = Activator.getDefault.getPreferenceStore
+      val roots = prefs.getString(ID).split(";").distinct.filter(valid)
+      set(roots) // we keep the list clean
+      roots
+    }
     def set(roots : Seq[String]) =
       if (roots.forall(!_.contains(";"))) {
         Activator.getDefault.getPreferenceStore().setValue(
-            ID, roots.filter(!_.isEmpty).mkString(";"))
+            ID, roots.filter(valid).mkString(";"))
       }
   }
   object ActiveRoot {
