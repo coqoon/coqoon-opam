@@ -175,8 +175,9 @@ object OPAM {
     val is_empty_dir = path.toFile.isDirectory() && path.toFile.list().isEmpty
     if (!is_root)
       if (is_empty_dir || !path.toFile.exists()) {
-        root(logger,"init","--comp="+ocaml,"-j","2","-n")
-        roots.update(path, WeakReference(root))
+        if (root(logger,"init","--comp="+ocaml,"-j","2","-n")) {
+          roots.update(path, WeakReference(root))
+        } else throw new OPAMException("OPAM root initialisation failed")
       } else throw new OPAMException("path " + path + " is a non empty directory")
     OPAMPreferences.Roots.set(OPAMPreferences.Roots.get() :+ path.toString)
     root.fillCache
