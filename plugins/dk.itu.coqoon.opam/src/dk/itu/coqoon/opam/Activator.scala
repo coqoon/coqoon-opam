@@ -27,8 +27,11 @@ class Override extends ICoqPathOverride {
   import org.eclipse.core.runtime.{Path, IPath}
   override def getCoqPath() = {
     val path = OPAMPreferences.ActiveRoot.get
-    path.map(p => new Path(
-        OPAM.canonicalise(new Path(p)).getPackage("coq").getConfigVar("bin"))
-    ).getOrElse(Path.EMPTY)
+    path.flatMap(p => OPAM.canonicalise(new Path(p))) match {
+      case Some(root) =>
+        new Path(root.getPackage("coq").getConfigVar("bin"))
+      case None =>
+        Path.EMPTY
+    }
   }
 }

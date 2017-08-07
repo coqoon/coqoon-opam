@@ -154,17 +154,22 @@ object OPAM {
   def canonicalise(p : IPath) =
     roots.get(p).flatMap(_.get) match {
       case Some(root) =>
-        root
+        Some(root)
       case None =>
-        val root = new OPAMRoot(p)
-        roots.update(p, WeakReference(root))
-        root.fillCache
-        root
+        try {
+          val root = new OPAMRoot(p)
+          roots.update(p, WeakReference(root))
+          root.fillCache
+          Some(root)
+        } catch {
+          case e : OPAMException =>
+            None
+        }
     }
 
   import dk.itu.coqoon.opam.ui.OPAMPreferences
   def getRoots() : Seq[OPAMRoot] =
-    OPAMPreferences.Roots.get.map(new Path(_)).map(canonicalise)
+    OPAMPreferences.Roots.get.map(new Path(_)).flatMap(canonicalise)
 
   def drop = ProcessLogger(s => ())
   def initRoot(path : IPath,

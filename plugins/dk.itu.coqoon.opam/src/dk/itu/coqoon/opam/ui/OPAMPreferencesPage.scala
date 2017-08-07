@@ -373,7 +373,7 @@ class OPAMPreferencesPage
         activeRoot.get.foreach(r => {
           val dialog =
             new org.eclipse.jface.dialogs.ProgressMonitorDialog(this.getShell)
-          val job = new UpdateJob(OPAM.canonicalise(new Path(r)))
+          val job = new UpdateJob(OPAM.canonicalise(new Path(r)).get)
           dialog.run(true, true, job)
           job.error match {
             case Some(s) => this.setErrorMessage(s)
@@ -386,7 +386,7 @@ class OPAMPreferencesPage
         activeRoot.get.foreach(r => {
           val dialog =
             new org.eclipse.jface.dialogs.ProgressMonitorDialog(this.getShell)
-          val job = new UpgradeJob(OPAM.canonicalise(new Path(r)))
+          val job = new UpgradeJob(OPAM.canonicalise(new Path(r)).get)
           dialog.run(true, true, job)
           job.error match {
             case Some(s) => this.setErrorMessage(s)

@@ -28,7 +28,7 @@ class OPAMProvider extends LoadPathImplementationProvider {
   }
 
   private def getRoot() =
-    OPAMPreferences.ActiveRoot.get.map(s => OPAM.canonicalise(new Path(s)))
+    OPAMPreferences.ActiveRoot.get.flatMap(s => OPAM.canonicalise(new Path(s)))
 
   def getName() = "OPAM"
   def getImplementation(id : String) =
