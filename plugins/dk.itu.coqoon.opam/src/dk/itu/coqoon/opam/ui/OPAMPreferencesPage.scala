@@ -96,7 +96,7 @@ class InitJob(val path : Path, val ocaml : String, val coq : String) extends IRu
       throw new OPAMException("Coqoon needs Coq")
     monitor.worked(1)
     
-    r.addRepositories(logger("Adding repository: Coqoon"),
+    r.addRepositories(logger("Adding repository: PIDEtop"),
         new r.Repository("coqoon","http://bitbucket.org/coqpide/opam.git"))
     monitor.worked(1)
 
@@ -146,59 +146,55 @@ class OPAMRootCreation(s : org.eclipse.swt.widgets.Shell)
       val names = UIXML(
         <composite name="root">
           <grid-layout margin="10" columns="3" />
-
-				  <label>Path:<tool-tip>Select a directory</tool-tip></label>
-				  <text name="path"/>
-				  <button name="sel-path">Select...</button>
-
           <label>Coq:<tool-tip>Coq version to install</tool-tip></label>
-          <combo name="coq">
+          <combo name="coq" border="true">
             <grid-data h-grab="true" h-span="2" />
           </combo>
           <label>OCaml:<tool-tip>OCaml version to install</tool-tip></label>
-          <combo name="ocaml">
+          <combo name="ocaml" border="true">
             <grid-data h-grab="true" h-span="2" />
           </combo>
+          <label separator="horizontal">
+            <grid-data h-grab="true" h-span="3" />
+          </label>
+          <label>Path:<tool-tip>Select a directory</tool-tip></label>
+          <text name="path" border="true" />
+          <button>
+            <listener kind="select-directory" target="path" />
+            Select...
+          </button>
         </composite>,c)
 
-      val wcoq = names.get[widgets.Combo]("coq")
-      wcoq.foreach(wcoq => {
-        Listener.Modify(wcoq, Listener {
-          case Event.Modify(_) => coq = wcoq.getText.trim
-        })
-        wcoq.add("8.5.2")
-        wcoq.add("8.6.dev")
-        wcoq.select(0)
+      val wcoq = names.get[widgets.Combo]("coq").get
+      Listener.Modify(wcoq, Listener {
+        case Event.Modify(_) => coq = wcoq.getText.trim
       })
+      wcoq.add("8.5.2")
+      wcoq.add("8.6.1")
+      wcoq.add("8.7.dev")
       
-      val wocaml = names.get[widgets.Combo]("ocaml")
-      wocaml.foreach(wocaml => {
-        Listener.Modify(wocaml, Listener {
-          case Event.Modify(_) => ocaml = wocaml.getText.trim
-        })
-        wocaml.add("4.01.0")
-        wocaml.add("4.02.3")
-        wocaml.add("system")
-        wocaml.select(0)
+      val wocaml = names.get[widgets.Combo]("ocaml").get
+      Listener.Modify(wocaml, Listener {
+        case Event.Modify(_) => ocaml = wocaml.getText.trim
       })
+      wocaml.add("4.01.0")
+      wocaml.add("4.02.3")
+      wocaml.add("system")
       
-      val wpath = names.get[widgets.Text]("path")
-      wpath.foreach(wpath => { 
-        Listener.Modify(wpath, Listener {
-          case Event.Modify(_) => path = wpath.getText.trim
-        })
-        wpath.setText(System.getenv("HOME") + "/opam-roots/coq-" + 
-            wocaml.get.getText + "-" + wcoq.get.getText)
+      val wpath = names.get[widgets.Text]("path").get
+      Listener.Modify(wpath, Listener {
+        case Event.Modify(_) => path = wpath.getText.trim
       })
-     
-      Listener.Selection(names.get[widgets.Button]("sel-path").get, Listener {
-        case Event.Selection(ev) =>
-          val d = new widgets.DirectoryDialog(s)
-          Option(d.open()).map(_.trim).filter(_.length > 0) match {
-            case Some(p) => wpath.get.setText(p)
-            case _ => }
-      })
-      
+      val updater = Listener {
+        case Event.Modify(_) =>
+          wpath.setText(System.getenv("HOME") + "/opam-roots/coq-" +
+              wocaml.getText + "-" + wcoq.getText)
+      }
+      Listener.Modify(wcoq, updater)
+      Listener.Modify(wocaml, updater)
+      wcoq.select(0)
+      wocaml.select(0)
+
       names.get[widgets.Composite]("root").get
     }
 }
