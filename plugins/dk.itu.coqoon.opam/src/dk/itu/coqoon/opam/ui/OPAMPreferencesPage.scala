@@ -74,6 +74,7 @@ class InitJob(val path : Path, val ocaml : String, val coq : String) extends IRu
     val logger = LOG.log(monitor, _ : String)
 
     val r = OPAM.initRoot(path, ocaml, logger = logger("Initializing"))
+    OPAMPreferences.Roots.set(OPAMPreferences.Roots.get() :+ path.toString)
     monitor.worked(1)
 
     // debugging: make a root without Coq
@@ -466,7 +467,7 @@ class OPAMContentProvider extends FuturisticContentProvider {
   override def actuallyGetChildren(i : AnyRef) =
     i match {
       case i @ dk.itu.coqoon.opam.OPAM =>
-        i.getRoots()
+        OPAMPreferences.Roots.get.map(new Path(_)).flatMap(OPAM.canonicalise)
       case _ => Seq()
     }
 }

@@ -167,10 +167,6 @@ object OPAM {
         }
     }
 
-  import dk.itu.coqoon.opam.ui.OPAMPreferences
-  def getRoots() : Seq[OPAMRoot] =
-    OPAMPreferences.Roots.get.map(new Path(_)).flatMap(canonicalise)
-
   def drop = ProcessLogger(s => ())
   def initRoot(path : IPath,
                ocaml : String = "system",
@@ -184,7 +180,6 @@ object OPAM {
           roots.update(path, WeakReference(root))
         } else throw new OPAMException("OPAM root initialisation failed")
       } else throw new OPAMException("path " + path + " is a non empty directory")
-    OPAMPreferences.Roots.set(OPAMPreferences.Roots.get() :+ path.toString)
     root.fillCache
     root
   }
