@@ -564,7 +564,7 @@ object OPAMPreferences {
     def set(roots : Seq[String]) =
       if (roots.forall(!_.contains(";"))) {
         Activator.getDefault.getPreferenceStore().setValue(
-            ID, roots.filter(!_.isEmpty).mkString(";"))
+            ID, roots.filterNot(_.isEmpty).distinct.mkString(";"))
       }
   }
   object ActiveRoot {
