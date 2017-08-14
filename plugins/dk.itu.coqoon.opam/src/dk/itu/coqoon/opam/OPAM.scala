@@ -26,10 +26,10 @@ class OPAMRoot private[opam](val path : IPath) {
           case _ => name + "=" + version }
         val ok = OPAMRoot.this(logger, "install","-y",thing)
         var pin_ok = true
-        if (ok && pin) 
-            OPAMRoot.this.getPackage(name).getInstalledVersion.foreach(v =>
-              pin_ok = OPAMRoot.this(logger, "pin","add",name,v.version))
         fillCache
+        if (ok && pin) 
+          OPAMRoot.this.getPackage(name).getInstalledVersion.foreach(v =>
+              pin_ok = OPAMRoot.this(logger, "pin","add",name,v.version))
         ok && pin_ok
       }
       
