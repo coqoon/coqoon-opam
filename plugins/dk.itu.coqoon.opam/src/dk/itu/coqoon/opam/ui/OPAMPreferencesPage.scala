@@ -398,9 +398,9 @@ class OPAMPreferencesPage
     cv0.setContentProvider(new OPAMContentProvider)
     cv0.setLabelProvider(new OPAMLabelProvider)
     cv0.setInput(OPAM)
-    Listener.Selection(cv0.getControl, Listener {
-      case Event.Selection(ev) =>
-        cv0.getSelection match {
+    cv0.addSelectionChangedListener(new viewers.ISelectionChangedListener {
+      override def selectionChanged(ev : viewers.SelectionChangedEvent) =
+        ev.getSelection match {
           case i : viewers.IStructuredSelection =>
             val root = i.getFirstElement.asInstanceOf[OPAMRoot]
             activeRoot.set(Some(Some(root.path.toString)))
@@ -412,7 +412,7 @@ class OPAMPreferencesPage
                 i.pack
             })
           case _ =>
-        }
+      }
     })
     val remove = names.get[widgets.Button]("remove").get
     Listener.Selection(remove, Listener {
@@ -452,10 +452,10 @@ class OPAMPreferencesPage
         }
     })
 
-    activeRoot.get.foreach(r => {
-      cv0.setSelection(new viewers.StructuredSelection(
-          OPAM.canonicalise(new Path(r))), true)
-    })
+    activeRoot.get.foreach(r =>
+      OPAM.canonicalise(new Path(r)).foreach(root => {
+        cv0.setSelection(new viewers.StructuredSelection(root), true)
+      }))
 
     names.get[widgets.Composite]("root").get
   }
