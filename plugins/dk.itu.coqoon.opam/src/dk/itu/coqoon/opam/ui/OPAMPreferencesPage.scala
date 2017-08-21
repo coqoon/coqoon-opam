@@ -575,8 +575,16 @@ object OPAMPreferences {
         Some(raw)
       } else None
     }
+
+    import dk.itu.coqoon.core.CoqoonPreferences
     def set(root : String) =
-      if (Roots.get.contains(root))
+      if (Roots.get.contains(root)) {
         Activator.getDefault.getPreferenceStore.setValue(ID, root)
+        OPAM.canonicalise(new Path(root)) foreach {
+          case root =>
+            CoqoonPreferences.CoqPath.set(
+                new Path(root.getPackage("coq").getConfigVar("bin")))
+        }
+      }
   }
 }
