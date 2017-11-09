@@ -110,18 +110,13 @@ class OPAMRoot private[opam](val path : IPath) {
   }*/
   
   def getPackage(name : String) : Package = new Package(name)
-  
-  def fillCache() : Unit = {   
-    val name_ver = """^(\S++)\s++(\S++).*""".r
-    read("list","-a").foreach(line =>
-      line match {
-        case name_ver(name,version) => {
-          val p = if (name(0) == '#') None else Some(new Package(name))
-          val v = if (version == "--") None else p.map(p => new p.Version(version))
-          p.foreach(name => cache += (name -> v)) }
-        case _ =>
-      })
-  }
+
+  private final val name_ver = """^(\S++)\s++(\S++).*""".r
+  def fillCache() : Unit =
+    for (name_ver(name, version) <- read("list","-a") if name(0) != '#';
+         p = new Package(name);
+         v = if (version != "--") Some(new p.Version(version)) else None)
+      cache += (p -> v)
   
   private [opam] def opam(args : String*) : ProcessBuilder = {
     Process(command="opam" +: args, cwd=None,
