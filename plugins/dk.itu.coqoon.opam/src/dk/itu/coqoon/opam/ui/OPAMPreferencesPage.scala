@@ -1,6 +1,7 @@
 package dk.itu.coqoon.opam.ui
 
 import dk.itu.coqoon.ui.utilities.{UIXML, Event, Listener}
+import dk.itu.coqoon.ui.utilities.jface.Selection
 import dk.itu.coqoon.core.utilities.CacheSlot
 import dk.itu.coqoon.opam.{OPAM, OPAMRoot, OPAMException, Activator}
 import org.eclipse.ui.IWorkbench
@@ -306,50 +307,39 @@ class OPAMPreferencesPage
     var job : Option[IRunnableWithProgressAndError] = None
     val toggle = names.get[widgets.Button]("toggle").get
     Listener.Selection(tv1.getControl, Listener {
-      case Event.Selection(ev) =>
-        tv1.getSelection match {
-          case i : viewers.IStructuredSelection =>
-            i.getFirstElement match {
-              case p : OPAMRoot#Package if p.isPinned() =>
-                toggle.setText("Package is pinned")
-                toggle.setEnabled(false)
-                job = None
-              case v : OPAMRoot#Package#Version
-                  if v.getPackage.isPinned() =>
-                toggle.setText("Package is pinned")
-                toggle.setEnabled(false)
-                job = None
-              case p : OPAMRoot#Package =>
-                p.getInstalledVersion match {
-                  case Some(v) =>
-                    toggle.setText("Uninstall...")
-                    toggle.setEnabled(true)
-                    job = Some(new RemoveJob(p))
-                  case None =>
-                    toggle.setText("Install new package...")
-                    toggle.setEnabled(true)
-                    job = Some(new InstallAnyJob(p))
-                }
-              case v : OPAMRoot#Package#Version
-                  if v.getPackage.getInstalledVersion.contains(v) =>
+      case Event.Selection(_) =>
+        Selection.Structured.unapply(tv1.getSelection).map(_.head) foreach {
+          case p : OPAMRoot#Package if p.isPinned() =>
+            toggle.setText("Package is pinned")
+            job = None
+          case v : OPAMRoot#Package#Version if v.getPackage.isPinned() =>
+            toggle.setText("Package is pinned")
+            job = None
+          case p : OPAMRoot#Package =>
+            p.getInstalledVersion match {
+              case Some(v) =>
                 toggle.setText("Uninstall...")
-                toggle.setEnabled(true)
-                job = Some(new RemoveJob(v.getPackage))
-              case v : OPAMRoot#Package#Version
-                  if v.getPackage.getInstalledVersion != None =>
-                toggle.setText("Replace installed version...")
-                toggle.setEnabled(true)
-                job = Some(new InstallVersionJob(v))
-              case v : OPAMRoot#Package#Version =>
+                job = Some(new RemoveJob(p))
+              case None =>
                 toggle.setText("Install new package...")
-                toggle.setEnabled(true)
-                job = Some(new InstallVersionJob(v))
+                job = Some(new InstallAnyJob(p))
             }
-            import org.eclipse.swt.SWT
-            toggle.pack
-            toggle.getParent.layout()
+          case v : OPAMRoot#Package#Version
+              if v.getPackage.getInstalledVersion.contains(v) =>
+            toggle.setText("Uninstall...")
+            job = Some(new RemoveJob(v.getPackage))
+          case v : OPAMRoot#Package#Version
+              if v.getPackage.getInstalledVersion != None =>
+            toggle.setText("Replace installed version...")
+            job = Some(new InstallVersionJob(v))
+          case v : OPAMRoot#Package#Version =>
+            toggle.setText("Install new package...")
+            job = Some(new InstallVersionJob(v))
           case _ =>
         }
+        toggle.setEnabled(job != None)
+        toggle.pack
+        toggle.getParent.layout()
     })
     Listener.Selection(toggle, Listener {
       case Event.Selection(ev) =>
@@ -401,11 +391,10 @@ class OPAMPreferencesPage
     cv0.addSelectionChangedListener(new viewers.ISelectionChangedListener {
       override def selectionChanged(ev : viewers.SelectionChangedEvent) =
         ev.getSelection match {
-          case i : viewers.IStructuredSelection =>
-            val root = i.getFirstElement.asInstanceOf[OPAMRoot]
-            activeRoot.set(Some(Some(root.path.toString)))
-            names.get[widgets.Label]("path").foreach(
-                _.setText(root.path.toString))
+          case Selection.Structured((root : OPAMRoot) +: _) =>
+            val pathText = root.path.toString
+            activeRoot.set(Some(Some(pathText)))
+            names.get[widgets.Label]("path").foreach(_.setText(pathText))
             Seq(tv0, tv1).foreach(tv => {
               tv.setInput(root)
               for (i <- tv.getTree.getColumns)
@@ -417,11 +406,16 @@ class OPAMPreferencesPage
     val remove = names.get[widgets.Button]("remove").get
     Listener.Selection(remove, Listener {
       case Event.Selection(ev) => {
-        val selected = cv0.getSelection.asInstanceOf[viewers.IStructuredSelection].getFirstElement.asInstanceOf[OPAMRoot].path.toString
-        val d = new OPAMRootDelete(selected, this.getShell)
-        if (d.open() == org.eclipse.jface.window.Window.OK) {
-          // if (d.delete) FIXME
-          OPAMPreferences.Roots.set(OPAMPreferences.Roots.get().filter(x => x != selected))
+        cv0.getSelection match {
+          case Selection.Structured((root : OPAMRoot) +: _) =>
+            val selected = root.path.toString
+            val d = new OPAMRootDelete(selected, this.getShell)
+            if (d.open() == org.eclipse.jface.window.Window.OK) {
+              // if (d.delete) FIXME
+              OPAMPreferences.Roots.set(
+                  OPAMPreferences.Roots.get().filter(x => x != selected))
+            }
+          case _ =>
         }
     }})
     val button = names.get[widgets.Button]("add").get
